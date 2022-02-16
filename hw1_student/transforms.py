@@ -14,7 +14,22 @@ def transform_is_valid(t, tolerance=1e-3):
     Returns:
         bool: True if array is a valid transform else False.
     """
-    pass
+
+    # check for general shape of the transformation matrix
+    # this actually violates the input requirement in documentation?
+
+    if t.shape != (4,4):
+        return False
+
+    rotation = t[:3,:3]
+    translation = t[:3,3:].flatten()
+    zeros = t[3:,:3]
+    one = t[3][3]
+
+
+    return np.allclose(np.linalg.inv(rotation), rotation.T, atol=tolerance) and np.allclose(zeros, [0,0,0], atol=tolerance) and np.allclose(one, 1, atol=tolerance) and np.isclose(np.linalg.det(rotation), 1, atol=tolerance) # is this the right way to use atol?
+
+    # pass
 
 
 def transform_concat(t1, t2):
@@ -29,13 +44,15 @@ def transform_concat(t1, t2):
         ValueError: t2 is invalid.
 
     Returns:
-        numpy.array [4, 4]: t1 * t2.
+        numpy.array [4, 4]: t1 * t2. 
+        first apply t2, then apply t1?
     """
     if not transform_is_valid(t1):
         raise ValueError('Invalid input transform t1')
     if not transform_is_valid(t2):
         raise ValueError('Invalid input transform t2')
-    pass
+    return np.matmul(t1, t2) # this means first apply t2, then apply t1
+    # pass
 
 
 def transform_point3s(t, ps):
@@ -56,7 +73,20 @@ def transform_point3s(t, ps):
         raise ValueError('Invalid input transform t')
     if len(ps.shape) != 2 or ps.shape[1] != 3:
         raise ValueError('Invalid input points ps')
-    pass
+
+    # transpose the points for matrix multiplication, then stack a row of 1's
+    stacked_points = np.vstack((ps.T, [1]*ps.shape[0]))
+    
+    assert stacked_points.shape[0] == 4
+    
+    # get rid of the stacked 1's, and transpose the points back to required shape
+    transformed_points = np.matmul(t, stacked_points)
+
+    return transformed_points[:-1].T
+
+
+    # return np.matmul(t, ps)
+    # pass
 
 
 def transform_inverse(t):
@@ -73,7 +103,9 @@ def transform_inverse(t):
     """
     if not transform_is_valid(t):
         raise ValueError('Invalid input transform t')
-    pass
+
+    return np.linalg.inv(t)
+    # pass
 
 
 @njit(parallel=True)
@@ -98,8 +130,9 @@ def camera_to_image(intrinsics, camera_points):
 
     u0 = intrinsics[0, 2]
     v0 = intrinsics[1, 2]
-    fu = intrinsics[0, 0]
-    fv = intrinsics[1, 1]
+    fu = intrinsics[0, 0] # what's this
+    fv = intrinsics[1, 1] # what's this?
+    # is this the focal length? If so, why are they different?
 
     # find u, v int coords
     image_coordinates = np.empty((camera_points.shape[0], 2), dtype=np.int64)
@@ -120,6 +153,28 @@ def depth_to_point_cloud(intrinsics, depth_image):
         depth_image (numpy.array [h, w]): each entry is a z depth value.
 
     Returns:
-        numpy.array [n, 3]: each row represents a different valid 3D point.
+        numpy.array [n, 3]: each row represents a different valid 3D point. 
     """
-    pass
+    point_cloud = []
+
+    u0 = intrinsics[0, 2]
+    v0 = intrinsics[1, 2]
+    fu = intrinsics[0, 0]
+    fv = intrinsics[1, 1]
+
+
+    for v in prange(depth_image.shape[0]): # for every row in the depth image
+        for u in prange(depth_image.shape[1]): # for every pixel in the row
+            # v is the horizontal (x) image coordinate value
+            # u is the vertical (y) image coordinate value
+
+            z = depth_image[v, u]
+            if z > 0:
+                x = (u - u0) / fu * z
+                y = (v - v0) / fv * z
+                point_cloud.append([x, y, z])
+
+    # assert point_cloud.shape[1] == 3
+    return np.array(point_cloud)
+   
+    # pass
