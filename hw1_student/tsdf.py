@@ -160,13 +160,19 @@ class TSDFVolume:
         tsdf_new = np.empty_like(tsdf_old, dtype=np.float32)
         w_new = np.empty_like(w_old, dtype=np.float32)
 
+        assert(len(tsdf_old) == len(w_old))
+        # print(len(tsdf_old))
         for i in prange(len(tsdf_old)):
+            # print(i)
             # TODO:
             w_new[i] = w_old[i] + observation_weight
+            # print(w_new[i], observation_weight)
             tsdf_new[i] = (w_old[i] * tsdf_old + observation_weight * margin_distance[i]) / w_new[i]
             # pass
+        # print(w_new)
         return tsdf_new, w_new
 
+    
     def get_valid_points(self, depth_image, voxel_u, voxel_v, voxel_z):
         """ Compute a boolean array for indexing the voxel volume and other variables.
         Note that every time the method integrate(...) is called, not every voxel in
@@ -191,7 +197,7 @@ class TSDFVolume:
         image_height, image_width = depth_image.shape
         valid_points = np.array([True] * voxel_u.shape[0])
 
-        for i in prange(voxel_u.shape[0]):
+        for i in range(voxel_u.shape[0]):
         
             # TODO 1:
             #  Eliminate pixels not in the image bounds or that are behind the image plane
@@ -233,14 +239,17 @@ class TSDFVolume:
             the input color and output color should have the same dimensions.
         """
         color_updated = np.empty_like(color_old, dtype=int)
-
+        # print('asserting shape match')
+        assert color_old.shape[0] == w_new.shape[0]
         # TODO: Compute the new R, G, and B value by summing the old color
         #  value weighted by the old weight, and the new color weighted by
         #  observation weight. Finally normalize the sum by the new weight.
         for i in range(color_updated.shape[0]):
+            w_new[i] = w_old[i] + observation_weight # added this line to avoid division by zero, don't know why though
+                                                     # messed up by parallelis?? very weird
             color_updated[i] = (w_old[i] * color_old[i] + observation_weight * color_new[i]) / w_new[i]
 
-        # pass
+        return color_updated
 
     def integrate(self, color_image, depth_image, camera_intrinsics, camera_pose, observation_weight=1.):
         """Integrate an RGB-D observation into the TSDF volume, by updating the weight volume,
@@ -255,6 +264,7 @@ class TSDFVolume:
                 observation. Defaults to 1.
         """
         color_image = color_image.astype(np.float32)
+        # print(color_image)
 
         # TODO: 1. Project the voxel grid coordinates to the world
         #  space by calling `voxel_to_world`. Then, transform the points
@@ -269,6 +279,7 @@ class TSDFVolume:
 
         # transform camera coordinates to image coordinates
         image_coord = camera_to_image(camera_intrinsics, camera_coord)
+        # print(image_coord[:, :1])
         
         # TODO: 2.
         #  Get all of the valid points in the voxel grid by implementing
@@ -279,19 +290,21 @@ class TSDFVolume:
         # TODO: 3.
         #  With the valid_points array as your indexing array, index into
         #  the self._voxel_coords variable to get the valid voxel x, y, and z.
-        valid_voxels = self._voxel_coords[valid_points_ind]
+        valid_tsdf_x = self._voxel_coords[valid_points_ind][:, :1]
+        valid_tsdf_y = self._voxel_coords[valid_points_ind][:, 1:2]
+        valid_tsdf_z = self._voxel_coords[valid_points_ind][:, 2:]
 
         # TODO: 4. With the valid_points array as your indexing array,
         #  get the valid pixels. Use those valid pixels to index into
         #  the depth_image, and find the valid margin distance. # what does this mean?
         valid_image_coord_u = image_coord[valid_points_ind][:, :1]
         valid_image_coord_v = image_coord[valid_points_ind][:, 1:]
-        # for every i, valid_image_coord_u[i] and  valid_image_coord_u[i] represent a valid pixel in image(h*w)
 
+        # for every i, valid_image_coord_u[i] and  valid_image_coord_u[i] represent a valid pixel in image(h*w)
         valid_camera_coord_z = camera_coord[valid_points_ind][:, 2:]
 
         valid_margin_distance = np.empty_like(valid_camera_coord_z)
-        for i in prange(len(valid_image_coord_u)):
+        for i in range(len(valid_image_coord_u)):
             depth = depth_image[valid_image_coord_v[i], valid_image_coord_u[i]]
             # print(depth, depth.shape)
             distance  = (depth - valid_camera_coord_z[i]) / self._truncation_margin
@@ -310,9 +323,7 @@ class TSDFVolume:
         #  `get_new_tsdf_and_weights`. Then update the weight volume
         #  and tsdf volume.
 
-        valid_tsdf_x = self._voxel_coords[valid_points_ind][:, :1]
-        valid_tsdf_y = self._voxel_coords[valid_points_ind][:, 1:2]
-        valid_tsdf_z = self._voxel_coords[valid_points_ind][:, 2:]
+
 
         self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], weight_new = self.get_new_tsdf_and_weights(tsdf_old=self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], 
                                                                                         margin_distance=valid_margin_distance, 
@@ -339,7 +350,7 @@ class TSDFVolume:
                                                                                                         observation_weight=observation_weight) 
 
         self._weight_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z] = weight_new
-
+        # print(self._color_volume)
 
 
     """
