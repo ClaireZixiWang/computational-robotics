@@ -35,7 +35,8 @@ class Ply(object):
 
         if ply_path != None:
             self.read(ply_path=ply_path)            
-        
+
+
         else:
             if points == None:
                 assert (normals == None and colors == None and triangles == None) # TODO can there be no pointers, but yes triangles?
@@ -99,21 +100,23 @@ class Ply(object):
                 f.write('element face ' + triangles_num + '\n')
                 f.write('property list uchar int vertex_index\n')
             f.write('end_header')
+        
         # : Write points.
         # : Write normals if they exist.
         # : Write colors if they exist.
-        for i in range(points_num):
-            f.write('\n')
-            for j in all_vertices[i]:
-                f.write(j+" ")  # TODO would it matter if I have an extra space after every line?
+            for i in range(points_num):
+                f.write('\n')
+                for j in all_vertices[i]:
+                    f.write(j+" ")  # TODO would it matter if I have an extra space after every line?
 
-        # TODO: Write face list if needed.
-        for i in range(triangles_num):
-            f.write('\n')
-            f.write(3 + ' ') # TODO would it matter if I have an extra space after every line?
-            for j in self.triangles[i]:
-                f.write(j + ' ') # TODO would it matter if I have an extra space after every line?
+            # TODO: Write face list if needed.
+            for i in range(triangles_num):
+                f.write('\n')
+                f.write(3 + ' ') # TODO would it matter if I have an extra space after every line?
+                for j in self.triangles[i]:
+                    f.write(j + ' ') # TODO would it matter if I have an extra space after every line?
 
+        f.close()
         # pass
 
     def read(self, ply_path):
@@ -124,6 +127,50 @@ class Ply(object):
         """
         # open file, which should be a text file, read as string?
         # split by line break
+        self.colors = None
+        self.normals = None
+        self.points = None
+        self.triangles = None
+
+
+        points_num = 0
+        face_num = 0
+        header_ended = False
+        normal_exist = False
+        color_exist = False
+
+        all_ply_data = []
 
         # TODO: Read in ply.
-        pass
+        with open(ply_path, 'r') as f:
+            for line in f:
+                if line.startswith('element'):
+                    words = line.split(' ')
+                    if words[1] == 'vertex':
+                        points_num = words[2]
+                    elif words[1] == 'face':
+                        face_num = words[2]
+                if 'nx' in line:
+                    normal_exist = True
+                if 'red' in line:
+                    color_exist = True
+                if header_ended and line!= '':
+                    all_ply_data.append(line.strip().split(' '))
+                if line.startswith('end_header'):
+                    header_ended = True
+
+        f.close()
+        all_points = np.array(all_ply_data[:points_num])
+        self.points = all_points[:,3]
+        if normal_exist:
+            self.normals = all_points[:, 3:6]
+            if color_exist:
+                self.colors = all_points[:, 6:]
+        else:
+            if color_exist:
+                self.colors = all_points[:, 3:]
+
+        if face_num > 0:
+            self.triangles = (np.array(all_ply_data[points_num:]).T)[1:].T
+
+        # pass
