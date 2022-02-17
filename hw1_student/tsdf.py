@@ -1,5 +1,7 @@
 
+from distutils.dep_util import newer_pairwise
 from re import I, T
+from turtle import distance
 from matplotlib import image
 from skimage import measure
 from transforms import *
@@ -179,9 +181,9 @@ class TSDFVolume:
 
         Args:
             depth_image (numpy.array [h, w]): A z depth image.
-            voxel_u (numpy.array [v, ]): Voxel coordinate projected into camera coordinate, axis is u
-            voxel_v (numpy.array [v, ]): Voxel coordinate projected into camera coordinate, axis is v
-            voxel_z (numpy.array [v, ]): Voxel coordinate projected into world coordinate axis z
+            voxel_u (numpy.array [v, ]): Voxel coordinate projected into image (not camera) coordinate, axis is u
+            voxel_v (numpy.array [v, ]): Voxel coordinate projected into image (not camera) coordinate, axis is v
+            voxel_z (numpy.array [v, ]): Voxel coordinate projected into camera (not world) coordinate axis z
         Returns:
             valid_points numpy.array [v, ]: A boolean matrix that will be
             used to index into the voxel grid. Note the dimension of this
@@ -259,25 +261,60 @@ class TSDFVolume:
 
         # TODO: 1. Project the voxel grid coordinates to the world
         #  space by calling `voxel_to_world`. Then, transform the points
-        #  in world coordinate to camera coordinates, which are in (u, v).
+        #  in world coordinate to image coordinates, which are in (u, v).
         #  You might want to save the voxel z coordinate for later use.
+        
+        # get world coordinates from voxel grid
+        world_points = self.voxel_to_world(self._volume_origin, self._voxel_coords, self._voxel_size)
 
+        # transform world coordinates to camera coordinates
+        camera_coord = transform_point3s(transform_inverse(camera_pose), world_points)
+
+        # transform camera coordinates to image coordinates
+        image_coord = camera_to_image(camera_intrinsics, camera_coord)
+        
         # TODO: 2.
         #  Get all of the valid points in the voxel grid by implementing
         #  the helper get_valid_points. Be sure to pass in the correct parameters.
+        # QUESTION should I pass the image coord or camera coord? ANSWER image coord for u and v. camera coord for z!
+        valid_points_ind = self.get_valid_points(depth_image, image_coord[:, :1], image_coord[:, 1:], voxel_z=camera_coord[:, 2:])
 
         # TODO: 3.
         #  With the valid_points array as your indexing array, index into
         #  the self._voxel_coords variable to get the valid voxel x, y, and z.
+        valid_voxels = self._voxel_coords[valid_points_ind]
 
         # TODO: 4. With the valid_points array as your indexing array,
         #  get the valid pixels. Use those valid pixels to index into
         #  the depth_image, and find the valid margin distance. # what does this mean?
+        valid_image_coord_u = image_coord[valid_points_ind][:, :1]
+        valid_image_coord_v = image_coord[valid_points_ind][:, 1:]
+        # for every i, valid_image_coord_u[i] and  valid_image_coord_u[i] represent a valid pixel in image(h*w)
 
+        valid_camera_coord_z = camera_coord[valid_points_ind][:, 2:]
+
+        valid_margin_distance = np.empty_like(valid_camera_coord_z)
+        for i in range(len(valid_image_coord_u)):
+            depth = depth_image[valid_image_coord_v, valid_image_coord_u]
+            distance  = (depth - valid_camera_coord_z[i]) / self._truncation_margin
+            if distance > 1:
+                valid_margin_distance[i] = 1
+            elif distance < -1:
+                valid_margin_distance[i] = -1
+            else:
+                valid_margin_distance[i] = distance
+        
+        assert (valid_margin_distance > -1).isall() and (valid_margin_distance < 1).isall() # the 
+                       
         # TODO: 5.
         #  Compute the new weight volume and tsdf volume by calling
         #  `get_new_tsdf_and_weights`. Then update the weight volume
         #  and tsdf volume.
+
+        self._tsdf_volume[valid_points_ind], weight_new = self.get_new_tsdf_and_weights(tsdf_old=self._tsdf_volume[valid_points_ind], 
+                                                                                        margin_distance=valid_margin_distance, 
+                                                                                        w_old=self._weight_volume[valid_points_ind], 
+                                                                                        observation_weight=observation_weight)
 
         # TODO: 6.
         #  Compute the new colors for only the valid voxels by using
@@ -285,6 +322,18 @@ class TSDFVolume:
         #  with the new colors. The color_old and color_new parameters can
         #  be obtained by indexing the valid voxels in the color volume and
         #  indexing the valid pixels in the rgb image.
+        color_new = np.empty_like(valid_image_coord_u)
+        for i in range(len(valid_image_coord_u)):
+            color_new[i] = color_image[valid_image_coord_u[i], valid_image_coord_v[i]]
+
+        self._color_volume[valid_points_ind] = self.get_new_colors_with_weights(self._color_volume[valid_points_ind], 
+                                                                                color_new=color_new,
+                                                                                w_old=self.observation_weight[valid_points_ind], 
+                                                                                w_new=weight_new,
+                                                                                observation_weight=observation_weight) 
+
+        self._weight_volume[valid_points_ind] = weight_new
+
 
 
     """
