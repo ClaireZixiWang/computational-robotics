@@ -38,11 +38,11 @@ class Ply(object):
 
 
         else:
-            if points == None:
-                assert (normals == None and colors == None and triangles == None) # TODO can there be no pointers, but yes triangles?
-            if normals != None:
+            if points is None:
+                assert (normals is None and colors is None and triangles is None) # TODO can there be no pointers, but yes triangles?
+            if not (normals is None):
                 assert normals.shape[0] == points.shape[0]
-            if colors != None:
+            if not (colors is None):
                 assert colors.shape[0] == points.shape[0] # why is this not equal to the number of points? TODO
             # many more other possible scenarios here. take care of later TODO
             # what if normal is none, but color is not none? TODO
@@ -63,58 +63,61 @@ class Ply(object):
         
         # all_vertices = np.array([])
         # stack all the point data in a big 2d array
+        points_num = 0
+        triangles_num = 0
 
-        if self.points == None:
-            points_num = 0
-        else:
+        if not (self.points is None):
             points_num = self.points.shape[0]
             all_vertices = self.points
 
-            if self.normals != None:
-                all_vertices = np.hstack(all_vertices, self.normals)
-            if self.colors != None:
-                all_vertices = np.hstack(all_vertices, self.colors)
+            if not (self.normals is None):
+                all_vertices = np.hstack((all_vertices, self.normals))
+            if not (self.colors is None):
+                all_vertices = np.hstack((all_vertices, self.colors))
             if all_vertices.ndim == 1:
                 all_vertices = np.expand_dims(all_vertices, axis=0) # in case if there's only 1 data, (1-d array,) expand the array to 2d
                 assert all_vertices.shape[0] == points_num # check if the new matrix has the same row 3 as number of points
-            if self.triangles != None:
+            if not (self.triangles is None):
                 triangles_num = self.triangles.shape[0]
 
 
         # : Write header depending on existance of normals, colors, and triangles.
         with open(ply_path, "w") as f:
-            f.write("ply\nformat ascii 1.0\nelement vertexm " + points_num + "\n")
-            if self.points != None:
+            f.write("ply\nformat ascii 1.0\nelement vertex " + str(points_num) + "\n")
+            if not (self.points is None):
                 f.write('property float x\n')
                 f.write('property float y\n')
                 f.write('property float z\n')
-            if self.normals != None:
+            if not (self.normals is None):
                 f.write('property float nx\n')
                 f.write('property float ny\n')
                 f.write('property float nz\n')
-            if self.colors != None:
+            if not (self.colors is None):
                 f.write('property uchar red\n')
                 f.write('property uchar green\n')
                 f.write('property uchar blue\n')
-            if self.triangles != None:
-                f.write('element face ' + triangles_num + '\n')
+            if not (self.triangles is None):
+                f.write('element face ' + str(triangles_num) + '\n')
                 f.write('property list uchar int vertex_index\n')
             f.write('end_header')
         
         # : Write points.
         # : Write normals if they exist.
         # : Write colors if they exist.
-            for i in range(points_num):
+            for vertex in all_vertices:
                 f.write('\n')
-                for j in all_vertices[i]:
-                    f.write(j+" ")  # TODO would it matter if I have an extra space after every line?
+                for j in range(len(vertex)):
+                    if j < 6:
+                        f.write(str(vertex[j])+" ")  # TODO would it matter if I have an extra space after every line?
+                    else:
+                        f.write(str(int(vertex[j]))+" ")
 
             # TODO: Write face list if needed.
             for i in range(triangles_num):
                 f.write('\n')
-                f.write(3 + ' ') # TODO would it matter if I have an extra space after every line?
+                f.write(str(3) + ' ') # TODO would it matter if I have an extra space after every line?
                 for j in self.triangles[i]:
-                    f.write(j + ' ') # TODO would it matter if I have an extra space after every line?
+                    f.write(str(j) + ' ') # TODO would it matter if I have an extra space after every line?
 
         f.close()
         # pass
@@ -147,9 +150,9 @@ class Ply(object):
                 if line.startswith('element'):
                     words = line.split(' ')
                     if words[1] == 'vertex':
-                        points_num = words[2]
+                        points_num = int(words[2])
                     elif words[1] == 'face':
-                        face_num = words[2]
+                        face_num = int(words[2])
                 if 'nx' in line:
                     normal_exist = True
                 if 'red' in line:
@@ -160,8 +163,9 @@ class Ply(object):
                     header_ended = True
 
         f.close()
+        # print(type(points_num))
         all_points = np.array(all_ply_data[:points_num])
-        self.points = all_points[:,3]
+        self.points = all_points[:,:3]
         if normal_exist:
             self.normals = all_points[:, 3:6]
             if color_exist:
