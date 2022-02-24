@@ -79,6 +79,34 @@ class TestTransforms(unittest.TestCase):
 
         self.assertTrue(np.isclose(transform_point3s(t, p), [[2., 4., -1.], [3., 0., -6.]]).all())
 
+    def test_transform_point3s_2(self):
+        """Test transforms.transform_point3s.
+        """
+        # 2 point3s
+        p = np.array([[1,2,3], [2., 7., -1.]])
+
+        # example transform
+        t = np.array([[1.000000000000000000e+00, -0.000000000000000000e+00, -0.000000000000000000e+00, 0.000000000000000000e+00],
+                        [-0.000000000000000000e+00, -5, 8, -1],
+                        [0.000000000000000000e+00, -8, -5, 7],
+                        [0.000000000000000000e+00, -0.000000000000000000e+00, -0.000000000000000000e+00, 1.000000000000000000e+00]])
+
+        self.assertTrue(np.isclose(transform_point3s(t, p), [[2, 13, -24], [3., -44, -44]]).all())
+
+    def test_transform_point3s(self):
+        """Test transforms.transform_point3s.
+        """
+        # 2 point3s
+        p = np.array([[1., 2., 3.], [2., 7., -1.]])
+
+        # example transform
+        t = np.array([[1., 0., 0., 1.],
+                      [0., 0., 1., 1.],
+                      [0., -1., 0., 1.],
+                      [0., 0., 0., 1.]])
+
+        self.assertTrue(np.isclose(transform_point3s(t, p), [[2., 4., -1.], [3., 0., -6.]]).all())
+
     def test_transform_inverse(self):
         """Test transforms.transform_inverse.
         """
