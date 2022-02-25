@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import image
 
 
 def denormalize_rgb(rgb):
@@ -121,3 +122,11 @@ def check_dataloader(dataloader):
         show_rgb(denormalize_rgb(rgb[i]).transpose(1, 2, 0))
         if dataloader.dataset.has_gt is True:
             show_mask(mask[i])
+
+# visualize a ground truth 
+# TODO: Probably should not be here, might be put in a separate test.py file
+def main():
+    show_mask(image.read_mask('/Users/zixiwang/dev/comsw4733-comp-robotics/hw2/dataset/train/gt/0_gt.png'))
+
+if __name__ == "__main__":
+    main()
