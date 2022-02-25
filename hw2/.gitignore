@@ -1,1 +1,5 @@
 .DS_Store
+__pycache__
+dataset/
+venv_hw2/
+
