@@ -1,4 +1,5 @@
 import os
+from random import shuffle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -171,14 +172,20 @@ def main():
     test_dir = root_dir + 'test/'
 
     # TODO: Create Datasets. You can use check_dataset(your_dataset) to check your implementation.
-    train_dataset = None
-    val_dataset = None
-    test_dataset = None
+    train_dataset = RGBDataset(train_dir, has_gt=True)
+    val_dataset = RGBDataset(val_dir, has_gt=True)
+    test_dataset = RGBDataset(test_dir, has_gt=False)
+    check_dataset(train_dataset)
+    check_dataset(val_dataset)
+    check_dataset(test_dataset)
 
     # TODO: Prepare Dataloaders. Only shuffle the training set. You can use check_dataloader(your_dataloader) to check your implementation.
-    train_loader = None
-    val_loader = None
-    test_loader = None
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=True)
+    check_dataloader(train_loader)
+    check_dataloader(val_loader)
+    check_dataloader(test_loader)
 
     # TODO: Prepare model
     model = None

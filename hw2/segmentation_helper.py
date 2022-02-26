@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from dataset import RGBDataset
 import image
 
 
@@ -126,7 +127,10 @@ def check_dataloader(dataloader):
 # visualize a ground truth 
 # TODO: Probably should not be here, might be put in a separate test.py file
 def main():
-    show_mask(image.read_mask('/Users/zixiwang/dev/comsw4733-comp-robotics/hw2/dataset/train/gt/0_gt.png'))
+    # show_mask(image.read_mask('/Users/zixiwang/dev/comsw4733-comp-robotics/hw2/dataset/train/gt/0_gt.png'))
+    # check_dataset(RGBDataset('/Users/zixiwang/dev/comsw4733-comp-robotics/hw2/dataset/test', has_gt=False))
+    check_dataset(RGBDataset('/Users/zixiwang/dev/comsw4733-comp-robotics/hw2/dataset/train', has_gt=True))
+
 
 if __name__ == "__main__":
     main()
