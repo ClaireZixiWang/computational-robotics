@@ -114,6 +114,10 @@ def check_dataloader(dataloader):
     print("dataset size:", len(dataloader.dataset))
     dataiter = iter(dataloader)
     sample = dataiter.next()
+    # print(sample)
+    # inputs, ground_truth = sample
+    # print("====================================")
+    # print(inputs, ground_truth)
     rgb = sample['input'].numpy()
     print("input shape:", rgb.shape)
     if dataloader.dataset.has_gt is True:

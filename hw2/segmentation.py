@@ -145,6 +145,41 @@ def train(model, device, train_loader, criterion, optimizer):
     model.train()
     train_loss, train_iou = 0, 0
     # TODO
+    for i, data in enumerate(train_loader):
+        inputs = data['input']
+        ground_truth = data['target']
+        inputs = inputs.to(device)
+        # print(type(inputs))
+        
+        # outputs = model(inputs)
+        # print('output shape:', outputs.shape)
+
+        # labels = torch.zeros(inputs.shape)
+#         for c in range(inputs.shape[1]):
+#             class_mask = torch.full(ground_truth.shape, c)
+#             labels[c] = (class_mask == ground_truth).long()
+        
+#         print(labels)
+        ground_truth = ground_truth.to(device)
+        # labels = labels.to(device)
+        
+        optimizer.zero_grad() # QUESTION: What does this do??
+        
+        # forward + backword step
+        outputs = model(inputs)
+        loss = criterion(outputs, ground_truth)  # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        loss.backward()
+        optimizer.step()
+        
+        # reporting statistics
+        train_loss += loss.item()
+        train_iou += np.array(iou(outputs, ground_truth)).mean() # QUESTION: Need the better way to store batch size.
+    
+    train_loss /= len(train_loader)
+    train_iou /= len(train_loader)
+    
+    print('The training loss for the epoch is %f and the training iou is %f' % (train_loss, train_iou))
+        
     return train_loss, train_iou
 
 
@@ -156,7 +191,32 @@ def val(model, device, val_loader, criterion):
     val_loss, val_iou = 0, 0
     with torch.no_grad():
         # TODO
-        pass
+        for i, data in enumerate(val_loader):
+            inputs = data['input']
+            ground_truth = data['target']
+            inputs = inputs.to(device)
+
+#             labels = torch.zeros(inputs.shape)
+#             for c in range(inputs.shape[1]):
+#                 class_mask = torch.full(ground_truth.shape, c)
+#                 labels[c] = (class_mask == ground_truth).long()
+
+#             print(labels)
+#             labels.to(device)
+            ground_truth = ground_truth.to(device)
+
+
+            # forward
+            outputs = model(inputs)
+            loss = criterion(outputs, ground_truth) # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+
+            # reporting statistics
+            val_loss += loss.item()
+            val_iou += np.array(iou(outputs, ground_truth)).mean()
+
+        val_loss /= len(val_loader)
+        val_iou /= len(val_loader)
+        # pass
     return val_loss, val_iou
 
 
@@ -175,29 +235,31 @@ def main():
     train_dataset = RGBDataset(train_dir, has_gt=True)
     val_dataset = RGBDataset(val_dir, has_gt=True)
     test_dataset = RGBDataset(test_dir, has_gt=False)
-    check_dataset(train_dataset)
-    check_dataset(val_dataset)
-    check_dataset(test_dataset)
+    # check_dataset(train_dataset)
+    # check_dataset(val_dataset)
+    # check_dataset(test_dataset)
 
     # TODO: Prepare Dataloaders. Only shuffle the training set. You can use check_dataloader(your_dataloader) to check your implementation.
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=4, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=4, shuffle=True)
     check_dataloader(train_loader)
-    check_dataloader(val_loader)
-    check_dataloader(test_loader)
+    # check_dataloader(val_loader)
+    # check_dataloader(test_loader)
 
     # TODO: Prepare model
-    model = None
+    model = MiniUNet()
+    model.to(device) # QUESTION: should I do this here or in the training loop?
+    
 
     # TODO: Define criterion and optimizer
-    criterion = None
-    optimizer = None
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8) # QUESTION: what hyperparam for Adam?
 
     # Train and validate the model
     # TODO: Remember to include the saved learning curve plot in your report
     train_loss_list, train_miou_list, val_loss_list, val_miou_list = list(), list(), list(), list()
-    epoch, max_epochs = 1, 3  # TODO: you may want to make changes here
+    epoch, max_epochs = 0, 50  # TODO: you may want to make changes here
     best_miou = float('-inf')
     while epoch <= max_epochs:
         print('Epoch (', epoch, '/', max_epochs, ')')
