@@ -88,12 +88,20 @@ def obj_depth2pts(obj_id, depth, mask, camera, view_matrix):
     obj_depth = gen_obj_depth(obj_id, depth, mask)
     
     # Transform the depth image according to camera extrinsics (i.e. camera pose)
-    camera_extrinsics = cam_view2pose(view_matrix)
-    depth_transformed = transform_point3s(camera_extrinsics, obj_depth)
+#     camera_extrinsics = cam_view2pose(view_matrix)
+#     depth_transformed = transform_point3s(camera_extrinsics, obj_depth)
     
-    # Get the point cloud
+#     # Get the point cloud
+#     camera_intrinsics = camera.compute_camera_matrix()[0]
+#     world_pts = depth_to_point_cloud(camera_intrinsics, depth_transformed)
+
     camera_intrinsics = camera.compute_camera_matrix()[0]
-    world_pts = depth_to_point_cloud(camera_intrinsics, depth_transformed)
+    world_from_depth = depth_to_point_cloud(camera_intrinsics, obj_depth)
+    camera_extrinsics = cam_view2pose(view_matrix)
+    world_pts = transform_point3s(camera_extrinsics, world_from_depth)
+
+
+
     
     return world_pts
 
@@ -118,15 +126,15 @@ def align_pts(pts_a, pts_b, max_iterations=20, threshold=1e-05):
     # Initialize the transformation matrix using trimesh.registration.procerustes()
     # QUESTION: what do you mean but subsampling the points? Aren't they having the same number of points already?
     try:
-        intial_transform = trimesh.registration.procerustes(pts_a, pts_b, scale=False, reflection=False)
-    except numpy.linalg.LinAlgError:
+        initial_transform = trimesh.registration.procrustes(pts_a, pts_b, scale=False, reflection=False)[0]
+    except np.linalg.LinAlgError:
         return None
 
 
     # Perform the icp algorithm using the trimesh.registration.icp()
     try:
-        matrix = trimesh.registration.icp(pts_a, pts_b, initial=initial_transform, max_iteration=max_iteration, threshold=thresold, kwargs={'scale':False, 'reflection':False})[0]
-    except numpy.linalg.LinAlgError:
+        matrix = trimesh.registration.icp(pts_a, pts_b, initial=initial_transform, max_iterations=max_iterations, threshold=threshold, scale=False, reflection=False)[0]
+    except np.linalg.LinAlgError:
         return None
 
     return matrix
@@ -154,10 +162,10 @@ def estimate_pose(depth, mask, camera, view_matrix):
     # 1. get the second point cloud of the object (which was implemented by me)
     # 2. get the first point cloud (which was suppodedly provided)
     # 3. use icp() to find the transformation, store in list_obj_pose
-    for obj_ind in range(1, 6):
+    for obj_id in range(1, 6):
         pts_b = obj_depth2pts(obj_id, depth, mask, camera, view_matrix)
         pts_a = obj_mesh2pts(obj_id, len(pts_b)) # QUESTION: what's the sampling numbers?
-        list_obj_pose.append(align_pts(pts_a, pts_b)) # QUESTION: what's the order of transformation? send who to who?
+        list_obj_pose.append(align_pts(pts_a, pts_b, max_iterations=50)) # QUESTION: what's the order of transformation? send who to who?
         
     return list_obj_pose
 
@@ -284,17 +292,17 @@ def main():
         print("Estimating scene", scene_id)
         # TODO
         # Get the depth image,
-        depth_img_path = scene_id + '_depth.png'
-        depth_path = os.path.join(dataset_dir, ['depth', scene_id+'_depth.png'])
+        # depth_img_path = scene_id + '_depth.png'
+        depth_path = os.path.join(dataset_dir, 'depth', str(scene_id)+'_depth.png')
         depth = image.read_depth(depth_path)
         
         # Get the mask
         # pred_img_path
-        pred_path = os.path.join(dataset_dir, ['pred', scene_id+'_pred.png'])
+        pred_path = os.path.join(dataset_dir, 'pred', str(scene_id)+'_pred.png')
         pred_mask = image.read_mask(pred_path)
         
         # Get the view_matrix
-        view_path = os.path.join(dataset_dir, ['view_matrix', scene_id+'.npy'])
+        view_path = os.path.join(dataset_dir, 'view_matrix', str(scene_id)+'.npy')
         view_matrix = np.load(view_path)
         
         # Estimate_pose()
@@ -306,13 +314,13 @@ def main():
         
         if args.val:
             # gt_img_path = scene_id + '_gt.png'
-            gt_path = os.path.join(dataset_dir, ['gt', scene_id+'_gt.png'])
+            gt_path = os.path.join(dataset_dir, 'gt', str(scene_id)+'_gt.png')
             gt_mask = image.read_mask(gt_path)
             
             list_obj_pose_gt = estimate_pose(depth, mask=gt_mask, camera=my_camera, view_matrix=view_matrix)
             save_pose(dataset_dir, folder='gtmask', scene_id=scene_id, list_obj_pose=list_obj_pose_gt)
             export_gt_ply(scene_id, depth, gt_mask, camera=my_camera, view_matrix=view_matrix)
-            export_pred_ply(dataset_dir, scene_id, suffix='gt_transformed', list_obj_pose=list_obj_pose_gt)        
+            export_pred_ply(dataset_dir, scene_id, suffix='gtmask_transformed', list_obj_pose=list_obj_pose_gt)        
         
 
 

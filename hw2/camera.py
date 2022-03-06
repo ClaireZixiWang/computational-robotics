@@ -60,8 +60,8 @@ class Camera(object):
         intrinsic_matrix[0][2] = width/2 # o_x = x coordinate center of image = half of image width
         intrinsic_matrix[1][2] = height/2
 
-        print("Printing intrinsic_matrix: ")
-        print(intrinsic_matrix)
+        # print("Printing intrinsic_matrix: ")
+        # print(intrinsic_matrix)
 
         
         # TODO: compute projection_matrix from camera parameters
