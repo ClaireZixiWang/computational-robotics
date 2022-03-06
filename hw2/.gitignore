@@ -1,5 +1,7 @@
 .DS_Store
 __pycache__
 dataset/
+dataset_orig/
+*.zip
 venv_hw2/
 
