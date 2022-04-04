@@ -201,7 +201,14 @@ class PyBulletSim:
         # HINT: p.calculateInverseKinematics takes in the end effector **link index** and not the **joint index**. You can use 
         #   self.robot_end_effector_link_index for this 
         # HINT: You might want to tune optional parameters of p.calculateInverseKinematics for better performance
-        
+        target_joint_state = p.calculateInverseKinematics(bodyUniqueId=self.robot_body_id, 
+                                                          endEffectorLinkIndex=self.robot_end_effector_link_index, 
+                                                          targetPosition=position, 
+                                                          targetOrientation=orientation,
+                                                          maxNumIterations=50)
+        # print("DEBUG: type of target_joint_state is:", type(target_joint_state))
+        # print("DEBUG: len of target_joint_state is:", len(target_joint_state))
+        # print("DEBUG: target_joint_state is:", target_joint_state)
 
         
         # ===============================
@@ -235,20 +242,27 @@ class PyBulletSim:
             [np.pi, 0, grasp_angle])
         pre_grasp_position_over_bin = grasp_position+np.array([0, 0, 0.3])
         pre_grasp_position_over_object = grasp_position+np.array([0, 0, 0.1])
-        post_grasp_position = grasp_position+np.array([0, 0, 0.3])
+        post_grasp_position = grasp_position+np.array([0, 0, 0.3]) 
         grasp_success = False
         # ========= TODO: Problem 2 (b) ============
         # Implement the following grasp sequence:
         # 1. open gripper
+        self.open_gripper()
         # 2. Move gripper to pre_grasp_position_over_bin
+        # TODO: QUESTION: is the gripper the end-effector link?
+        self.move_tool(pre_grasp_position_over_bin, gripper_orientation)
         # 3. Move gripper to pre_grasp_position_over_object
+        self.move_tool(pre_grasp_position_over_object, gripper_orientation)
         # 4. Move gripper to grasp_position
+        self.move_tool(grasp_position, gripper_orientation)
         # 5. Close gripper
+        self.close_gripper()
         # 6. Move gripper to post_grasp_position
+        self.move_tool(post_grasp_position, gripper_orientation)
         # 7. Move robot to robot_home_configuration
+        self.robot_go_home()
         # 8. Detect whether or not the object was grasped and return grasp_success
-
-
+        grasp_success = self.check_grasp_success()
 
         # ============================
         return grasp_success

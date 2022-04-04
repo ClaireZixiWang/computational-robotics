@@ -77,7 +77,8 @@ def get_grasp_position_angle(object_id):
     # Pay attention that p.getBasePositionAndOrientation returns a position and a quaternion
     # while we want a position and a single angle in radians (yaw)
     # You can use p.getEulerFromQuaternion
-    
+    position, quaternion = p.getBasePositionAndOrientation(object_id)
+    _, _, grasp_angle = p.getEulerFromQuaternion(quaternion)
 
     
     # ==================================
@@ -102,6 +103,7 @@ def test_robot_movement(num_trials, env):
         # Test position
         delta_pos = np.max(np.abs(np.array(link_state[0]) - random_position))
         delta_orn = np.max(np.abs(np.array(link_state[1]) - random_orientation))
+        # print("DEBUGGING: goal position is:", random_position, "and the goal orientation is", link_state[0])
         if  delta_pos <= 1e-3 and delta_orn <= 1e-3:
             passed += 1
         env.step_simulation(1000)
