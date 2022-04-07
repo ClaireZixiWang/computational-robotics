@@ -91,13 +91,12 @@ class RGBDataset(Dataset):
                                                 # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES 
         # print("CHECKING: type of rgb_img is:", type(rgb_img))
 
-        if self.has_gt is False:
-            sample = {'input': rgb_img}
-        else:
-            gt_mask = torch.LongTensor(image.read_mask(gt_file_path)) # QUESTION: should i use this? ==> YES
-            sample = {'input': rgb_img, 'target': gt_mask}
+        gt_mask = torch.LongTensor(image.read_mask(gt_file_path)) # QUESTION: should i use this? ==> YES
         sample = {'input': rgb_img, 'target': gt_mask}
         
+        # print("DEBUGGING: the dim of input image is", rgb_img.size())
+        # print("DEBUGGING: the dim of output mask is", gt_mask.size())
+
         return sample
         # ===============================================================================
 
@@ -115,7 +114,7 @@ class miniUNet(nn.Module):
         # ===============================================================================
         # Some inspiration from https://github.com/milesial/Pytorch-UNet
         self.down = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=n_channels, out_channels=16, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down2 = nn.Sequential(
@@ -159,7 +158,7 @@ class miniUNet(nn.Module):
         self.up5 = nn.Sequential(
             nn.Conv2d(in_channels=16+32, out_channels=16, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=16, out_channels=6, kernel_size=1)
+            nn.Conv2d(in_channels=16, out_channels=n_classes, kernel_size=1)
         )
         # ===============================================================================
 
@@ -275,7 +274,7 @@ def save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_m
     plt.savefig('learning_curve.png', bbox_inches='tight')
     plt.show()
 
-def iou(pred, target, n_classes=6):
+def iou(pred, target, n_classes=4):
     """
         Compute IoU on each object class and return as a list.
         :param pred (np.array object): predicted mask
@@ -299,12 +298,14 @@ def iou(pred, target, n_classes=6):
             intersection = pred_P[target_P].sum()  # TP
             if intersection == 0:
                 # print("pred and target for class", cls, "have no intersection")
+                cls_ious.append(float(0))
                 continue
             else:
                 FP = pred_P[target_N].sum()
                 FN = pred_N[target_P].sum()
                 union = intersection + FN + FP  # or pred_P.sum() + target_P.sum() - intersection
                 cls_ious.append(float(intersection) / float(union))
+    # print("DEBUGGING:", cls_ious)
     return cls_ious
 
 
@@ -323,10 +324,15 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
     model.train(is_train)
     # TODO: complete this function 
     # ===============================================================================
+    mean_epoch_loss = 0
+    mean_iou = 0
     for i, data in enumerate(loader):
         inputs = data['input']
         ground_truth = data['target']
+        # print("DEBUGGING: printing the ground_truth", ground_truth)
+        # print("DEBUGGING: rgb size are:", inputs.size(), "and the gt size are:", ground_truth.size())
         inputs = inputs.to(device)
+        
         # print(type(inputs))
         
         # outputs = model(inputs)
@@ -341,11 +347,16 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
         ground_truth = ground_truth.to(device)
         # labels = labels.to(device)
         
-        optimizer.zero_grad() # QUESTION: What does this do??
+        if is_train:
+            optimizer.zero_grad() # QUESTION: What does this do??
         
         # forward + backword step
         outputs = model(inputs)
+        # print("DEBUGGING: the dimension of the model output is", outputs.size())
         loss = criterion(outputs, ground_truth)  # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        _, pred = torch.max(outputs, dim=1)
+        # print("DEBUGGING: the dimension of the predicted mask is", pred.size())
+        
         
         if is_train:
             loss.backward()
@@ -353,8 +364,16 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
         
         # reporting statistics
         mean_epoch_loss += loss.item()
-        mean_iou += np.array(iou(outputs, ground_truth)).mean() # QUESTION: Need the better way to store batch size.
-    
+        
+        # print("DEBUGGING: I'm training \[",is_train,"\], and the batch size is", len(inputs))
+        
+        # in every batch, calculate the iou for each datapoint, then sum them up and calculate the batch miou
+        batch_iou = 0
+        for i in range(len(inputs)):
+            miou_data_point = np.array(iou(pred[i], ground_truth[i])).mean()
+            batch_iou += miou_data_point
+        mean_iou += batch_iou / len(inputs)
+        
     mean_epoch_loss /= len(loader)
     mean_iou /= len(loader)
     
@@ -409,8 +428,11 @@ if __name__ == "__main__":
     # Load the "dataset" directory using RGBDataset class as a pytorch dataset
     # Split the above dataset into train and test dataset in 9:1 ratio using `torch.utils.data.random_split` method
     # ===============================================================================
-    dataset = RGBDataset(root_dir, has_gt=True)
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [9,1])
+    dataset = RGBDataset(root_dir)
+    train_size = int(0.9 * len(dataset))
+    test_size = int(0.1 * len(dataset))
+    
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
     # ===============================================================================
 
     # TODO: Prepare train and test Dataloaders. Use appropriate batch size
@@ -421,7 +443,7 @@ if __name__ == "__main__":
 
     # TODO: Prepare model
     # ===============================================================================
-    model = miniUNet()
+    model = miniUNet(n_channels=3, n_classes=4)
     model.to(device) # QUESTION: should I do this here or in the training loop?
     # ===============================================================================
 
@@ -438,11 +460,11 @@ if __name__ == "__main__":
     # - Visualize the performance of a trained model using save_prediction method. Make sure that the predicted segmentation mask is almost correct.
     # ===============================================================================
     train_loss_list, train_miou_list, test_loss_list, test_miou_list = list(), list(), list(), list()
-    epoch, max_epochs = 0, 50  # TODO: you may want to make changes here
+    epoch, max_epochs = 0, 5  # TODO: you may want to make changes here
     best_miou = float('-inf')
     while epoch <= max_epochs:
         print('Epoch (', epoch, '/', max_epochs, ')')
-        train_loss, train_miou = run(model, device, train_loader, criterion, optimizer)
+        train_loss, train_miou = run(model, device, train_loader, criterion, True, optimizer)
         test_loss, test_miou = run(model, device, test_loader, criterion)
         train_loss_list.append(train_loss)
         train_miou_list.append(train_miou)
@@ -453,12 +475,12 @@ if __name__ == "__main__":
         print('---------------------------------')
         if test_miou > best_miou:
             best_miou = test_miou
-            save_chkpt(model, epoch, test_miou)
+            save_chkpt(model, epoch, test_miou, 'checkpoint_multi.pth.tar')
         epoch += 1
 
     # Load the best checkpoint, use save_prediction() on the validation set and test set
-    model, epoch, best_miou = load_chkpt(model, 'checkpoint.pth.tar')
-    save_prediction(model, device, test_loader, test_dir)
+    model, epoch, best_miou = load_chkpt(model, 'checkpoint_multi.pth.tar', device)
+    save_prediction(model, test_loader, test_dir, device, 4)
     save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_miou_list)
 
     # ===============================================================================
