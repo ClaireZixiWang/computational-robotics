@@ -306,6 +306,7 @@ class PyBulletSim:
         for joint, value in zip(self._robot_joint_indices, values):
             p.resetJointState(self.robot_body_id, joint, value)
 
+    # TODO: QUESTION: how does this work? Why is this checking whether a certain point is colliding or?
     def check_collision(self, q):
         self.set_joint_positions(q)
         for obstacle_id in self.obstacles:

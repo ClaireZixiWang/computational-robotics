@@ -1,14 +1,19 @@
 from __future__ import division
+from dis import dis
+from importlib.resources import path
 from os import link
+from re import S
 import sim
 import pybullet as p
 import random
 import numpy as np
 import math
 import argparse
+from collections import OrderedDict
 
 MAX_ITERS = 10000
 delta_q = 0.3
+
 
 def visualize_path(q_1, q_2, env, color=[0, 1, 0]):
     """
@@ -42,10 +47,156 @@ def rrt(q_init, q_goal, MAX_ITERS, delta_q, steer_goal_p, env):
     # that the robot should take in order to reach q_goal starting from q_init
     # Use visualize_path() to visualize the edges in the exploration tree for part (b)
     
+    # TODO: Implementing the graph as an adjacency-list, bi-directional graph
+    # TODO: But it's actually a Tree! Do I want to represent it differently?
+    print('DEBUGGING: deltq_q is:', delta_q)
+    G = {q_init.tobytes(): []}
+    V = [q_init]
+    E = [] # E is a list of tuples(v1, v2)
 
+    for i in range(MAX_ITERS):
+        print("ITERATION", i)
+        # print("DEBUGGING: I'm checking what's in G:", G)
+        # random goal in configuration space
+        q_rand = SemiRandomSample(steer_goal_p, q_goal)
+        print("DEBUGGING: the goal config is:", q_rand)
+
+        # Find the nearest point in the current tree represented by V, E
+        q_nearest = Nearest(G, q_rand, q_init)
+        print("DEBUGGING: the nearest config is:", q_nearest)
+
+        # Steer one step(delta_q) towards the goal(q_rand)
+        q_new = Steer(q_nearest, q_rand, delta_q)
+        print("DEBUGGING: the next config is:", q_new)
+
+        if not env.check_collision(q_new):
+            print('DEBUGGING: haha! no collision')
+            V.append(q_new)
+            E.append((q_nearest, q_new))
+            G[q_nearest.tobytes()].append(q_new)
+            G[q_new.tobytes()] = [q_nearest]
+
+            # visualizing the exploration tree
+            visualize_path(q_new, q_nearest, env)
+            # if reached goal, find the path and return
+            if distance(q_new, q_goal) < delta_q:
+                # Assuming there will not be obstacles smaller than delta_q,
+                # therefore no need to check for obstacle again.
+                V.append(q_goal)
+                E.append((q_new, q_goal))
+                G[q_goal.tobytes()] = [q_new]
+                G[q_new.tobytes()].append(q_goal)
+                return find_path(G, q_init, q_goal)
 
     # ==================================
     return None
+
+
+
+# random sampling free configuration space
+# The configuration space is [-np.pi, np.pi]^6, NOT [-360, 360]^6
+def SemiRandomSample(steer_goal_p, q_goal):
+    p = random.random()
+    if p < steer_goal_p:
+        # print('DEBUGGING: i\'m steering towards the goal')
+        return q_goal
+    else:
+        # print('DEBUGGING: i\'m random sampling')
+        # return [random.uniform(-np.pi, np.pi), random.uniform(-np.pi, np.pi), random.uniform(-np.pi, np.pi),
+        #         random.uniform(-np.pi, np.pi), random.uniform(-np.pi, np.pi), random.uniform(-np.pi, np.pi)]
+        return [random.uniform(-360, 360), random.uniform(-360, 360), random.uniform(-360, 360),
+                random.uniform(-360, 360), random.uniform(-360, 360), random.uniform(-360, 360)]
+# Nearest(G, x_rand)
+def Nearest(G, q_rand, q_init):
+    # BFS
+    queue = [q_init]
+    visited = [q_init]
+    dist = [distance(q_init, q_rand)]
+
+    while queue:
+        # print("DEBUGGING: the queue is not empty")
+        node = queue.pop(0)
+        # print("DEBUGGING: The NODE I'm looking for is:", node)
+
+        for neighbor in G[node.tobytes()]:
+            # print("DEBUGGING: the neighbor is", neighbor)
+            # print("DEBUGGING: visited list is:", visited)
+            # print("DEBUGGING:", neighbor in visited)
+            
+            # TODO: neighbot in visited cannot run? It literally can run in the python shell.
+            if not(any((neighbor == v).all() for v in visited)):
+                visited.append(neighbor)
+                dist.append(distance(neighbor, q_rand))
+                queue.append(neighbor)
+    
+    # return the node that's closest to q_rand
+    # print("DEBUGGING: the distance list is:", dist)
+    return visited[np.argmin([dist])]
+
+# Steer(x_nearest, x_rand)
+def Steer(q_nearest, q_rand, delta_q):
+    # TODO: why the formula? it seems like it's not really updating much
+    q_new = q_nearest + (q_rand - q_nearest) * delta_q / distance(q_nearest, q_rand)
+    # print("DEBUGGING: checking if q_new is equal to q_nearest:", q_new == q_nearest)
+    return q_new
+    # return q_nearest + (q_rand - q_nearest) * delta_q * distance(q_nearest, q_rand)
+
+
+# ObstacleFree(x, y)
+def obstacleFree(x, y):
+    # TODO: understanding how check_collision works
+    return env.check_collision(x) and env.check_collision(y)
+
+# return the l1 distance between x and y
+def distance(x, y):
+    # print("DEBUGGING: the distance between x and y is:", np.linalg.norm(x-y, ord=1))
+    return np.linalg.norm(x-y, ord=1)
+
+
+# TODO: A*'s algorithm to find the shortest path?
+def find_path(G, q_init, q_goal):
+
+    # TODO: can this whole function work if I serielize my configuration arrays for dictionary key?
+    path = [] # a list of joint config
+    graph_distance = {}
+    # Initiate the graph distance dictionary
+    # graph_distance[node] = [node.g, node.f], g is cost from n to start, f is cost from n to goal
+    for n in G.keys():
+        graph_distance[n] = [np.inf, np.inf, n]
+    # Some indexing MACRO to help
+    G_IND = 0
+    F_IND = 1
+    PARENT_IND = 2
+    
+    # Initiate the empty list
+    temp_list = [q_init]
+    temp_f = [0]
+
+    # Initiate the start node
+    graph_distance[q_init.tobytes()] = [0, distance(q_init, q_goal), q_init]
+
+    while temp_list:
+        current = temp_list.pop(np.argmin(temp_f))
+        temp_f.pop(np.argmin(temp_f))
+        if (current == q_goal).all(): 
+            break
+        for neighbor in G[current.tobytes()]:
+            if graph_distance[neighbor.tobytes()][G_IND] > graph_distance[current.tobytes()][G_IND] + distance(current, neighbor):
+                graph_distance[neighbor.tobytes()][G_IND] = graph_distance[current.tobytes()][G_IND] + distance(current, neighbor)
+                graph_distance[neighbor.tobytes()][F_IND] = graph_distance[neighbor.tobytes()][G_IND] + distance(neighbor, q_goal)
+                graph_distance[neighbor.tobytes()][PARENT_IND] = current
+                if (any((neighbor == t).all() for t in temp_list)):
+                    temp_f[temp_list.index(neighbor)] = graph_distance[neighbor.tobytes()][F_IND]
+                else:
+                    temp_list.append(neighbor)
+                    temp_f.append(graph_distance[neighbor.tobytes()][F_IND])
+
+    node = q_goal
+    while (graph_distance[node.tobytes()][PARENT_IND] != node).any():
+        path.append(node)
+        node = graph_distance[node.tobytes()][PARENT_IND]
+    path.append(node)
+    return path.reverse()
 
 def execute_path(path_conf, env):
     """
