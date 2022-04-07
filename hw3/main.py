@@ -10,9 +10,10 @@ import numpy as np
 import math
 import argparse
 from collections import OrderedDict
+import time
 
 MAX_ITERS = 10000
-delta_q = 0.3
+delta_q = 0.5
 
 
 def visualize_path(q_1, q_2, env, color=[0, 1, 0]):
@@ -150,7 +151,7 @@ def obstacleFree(x, y):
 # return the l1 distance between x and y
 def distance(x, y):
     # print("DEBUGGING: the distance between x and y is:", np.linalg.norm(x-y, ord=1))
-    return np.linalg.norm(x-y, ord=1)
+    return np.linalg.norm(x-y, ord=2)
 
 
 # TODO: A*'s algorithm to find the shortest path?
@@ -196,7 +197,9 @@ def find_path(G, q_init, q_goal):
         path.append(node)
         node = graph_distance[node.tobytes()][PARENT_IND]
     path.append(node)
-    return path.reverse()
+    path.reverse()
+    print("DEBUGGING: the path is", path)
+    return path
 
 def execute_path(path_conf, env):
     """
@@ -211,7 +214,22 @@ def execute_path(path_conf, env):
     #    (Hint: declare a list to store the markers)
     # 2. Drop the object (Hint: open gripper, wait, close gripper)
     # 3. Return the robot to original location by retracing the path 
-   
+    sphere_list = []
+    for q in path_conf:
+        print("DEBUGGING:", q)
+        env.move_joints(q)
+        sphere_list.append(sim.SphereMarker(p.getLinkState(env.robot_body_id, 9)[0]))
+
+    
+    env.open_gripper()
+    env.step_simulation(1e2)
+    env.close_gripper()
+
+    path_conf.reverse()
+
+    for q in path_conf:
+        env.move_joints(q)
+
 
 
     # ==================================
@@ -257,7 +275,7 @@ def test_robot_movement(num_trials, env):
         # print("DEBUGGING: goal position is:", random_position, "and the goal orientation is", link_state[0])
         if  delta_pos <= 1e-3 and delta_orn <= 1e-3:
             passed += 1
-        env.step_simulation(1000)
+        env.step_simulation(5000) # I tuned this number to slow down the p1 simulation
         # Return to robot's home configuration
         env.robot_go_home()
         del marker, link_marker
@@ -289,7 +307,7 @@ def test_rrt(num_trials, env):
         if grasp_success:
             # get a list of robot configuration in small step sizes
             path_conf = rrt(env.robot_home_joint_config,
-                            env.robot_goal_joint_config, MAX_ITERS, delta_q, 0.5, env)
+                            env.robot_goal_joint_config, MAX_ITERS, delta_q, 0.9, env)
             if path_conf is None:
                 print(
                     "no collision-free path is found within the time budget. continuing ...")
