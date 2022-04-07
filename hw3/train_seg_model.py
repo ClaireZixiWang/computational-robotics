@@ -7,6 +7,7 @@ import image
 import numpy as np
 from random import seed
 from sim import get_tableau_palette
+import matplotlib.pyplot as plt
 
 
 # ==================================================
@@ -22,8 +23,30 @@ class RGBDataset(Dataset):
             :return None:
         """
         # TODO: complete this method
+        ## Borrowed from hw2
         # ===============================================================================
-        pass
+        # pass
+        # Input normalization info to be used in transforms.Normalize()
+        mean_rgb = [0.722, 0.751, 0.807]
+        std_rgb = [0.171, 0.179, 0.197]
+
+        self.dataset_dir = img_dir
+        # TODO: what to deal with the has_gt flag?
+        # self.has_gt = has_gt
+
+        # Transform to be applied on a sample.
+        #  For this homework, compose transforms.ToTensor() and transforms.Normalize() for RGB image should be enough.
+        self.transform = transforms.Compose([transforms.ToTensor(),
+                                             transforms.Normalize(mean_rgb, std_rgb)]) # QUESTION: Inplace=?
+
+        # go into the rgb/ subfolder, since all test, train, val has rgb/ subfolder
+        rgb_subfolder = os.path.join(self.dataset_dir, 'rgb/')
+        
+        # borrowd from stackoverflow: 
+        # https://stackoverflow.com/questions/2632205/how-to-count-the-number-of-files-in-a-directory-using-python
+        # count # of files in a folder, excluding folders such as './' and '../'
+        self.dataset_length = len([name for name in os.listdir(rgb_subfolder) if os.path.isfile(os.path.join(rgb_subfolder, name))])
+        print("DEBUGGING: The length of the dataset is: ", self.dataset_length)
         # ===============================================================================
 
     def __len__(self):
@@ -32,9 +55,11 @@ class RGBDataset(Dataset):
             :return dataset_length (int): length of the dataset, i.e. number of samples in the dataset
         """
         # TODO: complete this method
+        ## Borrowed from hw2
         # ===============================================================================
-        pass
-        # ===============================================================================
+        return self.dataset_length
+        # pass
+        # # ===============================================================================
 
     def __getitem__(self, idx):
         """
@@ -43,14 +68,36 @@ class RGBDataset(Dataset):
             :return sample: a dictionary that stores paired rgb image and corresponding ground truth mask.
         """
         # TODO: complete this method
+        ## Borrowed from hw2
         # Hint:
         # - Use image.read_rgb() and image.read_mask() to read the images.
         # - Think about how to associate idx with the file name of images.
         # - Remember to apply transform on the sample.
         # ===============================================================================
-        rgb_img = None
-        gt_mask = None
+        rgb_subfolder = os.path.join(self.dataset_dir, 'rgb/')
+        gt_subfolder = os.path.join(self.dataset_dir, 'gt/')
+
+        rgb_name = str(idx) + '_rgb.png'
+        gt_name = str(idx) + '_gt.png'
+
+        rgb_file_path = os.path.join(rgb_subfolder, rgb_name)
+        gt_file_path = os.path.join(gt_subfolder, gt_name)
+
+        # print("CHECKING: rgb_file_path: %s; gt_file_path: %s" % (rgb_file_path, gt_file_path))
+
+        rgb_img = self.transform(image.read_rgb(rgb_file_path))
+                                                # QUESTION: should I use torch.io.read_image()?  ==> NO
+                                                # QUESTION: why is the generated picture so dim?  ==> Didn't transform!!
+                                                # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES 
+        # print("CHECKING: type of rgb_img is:", type(rgb_img))
+
+        if self.has_gt is False:
+            sample = {'input': rgb_img}
+        else:
+            gt_mask = torch.LongTensor(image.read_mask(gt_file_path)) # QUESTION: should i use this? ==> YES
+            sample = {'input': rgb_img, 'target': gt_mask}
         sample = {'input': rgb_img, 'target': gt_mask}
+        
         return sample
         # ===============================================================================
 
@@ -66,13 +113,81 @@ class miniUNet(nn.Module):
         super(miniUNet, self).__init__()
         # TODO: complete this method
         # ===============================================================================
-        pass
+        # Some inspiration from https://github.com/milesial/Pytorch-UNet
+        self.down = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.ReLU()
+        )
+        self.down2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.ReLU()
+        )
+        self.down3 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.ReLU()
+        )
+        self.down4 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.ReLU()
+        )
+        self.down_last = nn.MaxPool2d(kernel_size=2)
+        self.up = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1), # QUESTION: or should we be using convtranspose2d? --> NO
+            nn.ReLU(),
+            # QUESTION: what's the interpolate function? Upsampling?? --> Yes
+            nn.Upsample(scale_factor=2)
+            # QUESTION: should I concat in the forward function? --> Yes
+        )
+        self.up2 = nn.Sequential(
+            nn.Conv2d(in_channels=128+256, out_channels=128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2)
+        )
+        self.up3 = nn.Sequential(
+            nn.Conv2d(in_channels=64+128, out_channels=64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2)
+        )
+        self.up4 = nn.Sequential(
+            nn.Conv2d(in_channels=32+64, out_channels=32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2)
+        )
+        self.up5 = nn.Sequential(
+            nn.Conv2d(in_channels=16+32, out_channels=16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=16, out_channels=6, kernel_size=1)
+        )
         # ===============================================================================
 
     def forward(self, x):
         # TODO: complete this method
         # ===============================================================================
-        pass
+        down1 = self.down(x)
+        down2 = self.down2(down1)
+        down3 = self.down3(down2)
+        down4 = self.down4(down3)
+        down_last = self.down_last(down4)
+        up1 = self.up(down_last)
+        # print("The size of down1 is: ", down1.size())
+        # print("The size of down2 is: ", down2.size())
+        # print("The size of down3 is: ", down3.size())
+        # print("The size of down4 is: ", down4.size())
+        # print("The size of down_last is: ", down_last.size())
+        up2 = self.up2(torch.cat([down4, up1], axis=1)) # QUESTION: what should be the axis?
+        up3 = self.up3(torch.cat([down3, up2], axis=1))
+        up4 = self.up4(torch.cat([down2, up3], axis=1))
+        output = self.up5(torch.cat([down1, up4], axis=1))
+        # print("The size of up1 is: ", up1.size())
+        # print("The size of up2 is: ", up2.size())
+        # print("The size of up3 is: ", up3.size())
+        # print("The size of up4 is: ", up4.size())
+        # print("The size of output is: ", output.size())
+        # print("The output is:", output)
+        return output
         # ===============================================================================
 
 
@@ -136,6 +251,29 @@ def save_prediction(model, dataloader, dump_dir, device, BATCH_SIZE):
                 test_ID = batch_ID * BATCH_SIZE + i
                 image.write_mask(combined_image, f"{dump_dir}/{test_ID}_gt_pred.png")
 
+def save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_miou_list):
+    """
+    In:
+        train_loss, train_miou, test_loss, test_miou: list of floats, where the length is how many epochs you trained.
+    Out:
+        None.
+    Purpose:
+        Plot and save the learning curve.
+    """
+    epochs = np.arange(1, len(train_loss_list)+1)
+    plt.figure()
+    lr_curve_plot = plt.plot(epochs, train_loss_list, color='navy', label="train_loss")
+    plt.plot(epochs, train_miou_list, color='teal', label="train_mIoU")
+    plt.plot(epochs, test_loss_list, color='orange', label="test_loss")
+    plt.plot(epochs, test_miou_list, color='gold', label="val_mIoU")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.xticks(epochs, epochs)
+    plt.yticks(np.arange(10)*0.1, [f"0.{i}" for i in range(10)])
+    plt.xlabel('epoch')
+    plt.ylabel('mIoU')
+    plt.grid(True)
+    plt.savefig('learning_curve.png', bbox_inches='tight')
+    plt.show()
 
 def iou(pred, target, n_classes=6):
     """
@@ -170,7 +308,7 @@ def iou(pred, target, n_classes=6):
     return cls_ious
 
 
-def run(model, loader, criterion, is_train=False, optimizer=None):
+def run(model, device, loader, criterion, is_train=False, optimizer=None):
     """
         Run forward pass for each sample in the dataloader. Run backward pass and optimize if training.
         Calculate and return mean_epoch_loss and mean_iou
@@ -185,9 +323,50 @@ def run(model, loader, criterion, is_train=False, optimizer=None):
     model.train(is_train)
     # TODO: complete this function 
     # ===============================================================================
-    mean_epoch_loss, mean_iou = 0.0, 0.0
+    for i, data in enumerate(loader):
+        inputs = data['input']
+        ground_truth = data['target']
+        inputs = inputs.to(device)
+        # print(type(inputs))
+        
+        # outputs = model(inputs)
+        # print('output shape:', outputs.shape)
+
+        # labels = torch.zeros(inputs.shape)
+#         for c in range(inputs.shape[1]):
+#             class_mask = torch.full(ground_truth.shape, c)
+#             labels[c] = (class_mask == ground_truth).long()
+        
+#         print(labels)
+        ground_truth = ground_truth.to(device)
+        # labels = labels.to(device)
+        
+        optimizer.zero_grad() # QUESTION: What does this do??
+        
+        # forward + backword step
+        outputs = model(inputs)
+        loss = criterion(outputs, ground_truth)  # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        
+        if is_train:
+            loss.backward()
+            optimizer.step()
+        
+        # reporting statistics
+        mean_epoch_loss += loss.item()
+        mean_iou += np.array(iou(outputs, ground_truth)).mean() # QUESTION: Need the better way to store batch size.
+    
+    mean_epoch_loss /= len(loader)
+    mean_iou /= len(loader)
+    
+    if is_train:
+        print('The training loss for the epoch is %f and the training iou is %f' % (mean_epoch_loss, mean_iou))
+    else:
+        print('The validation loss for the epoch is %f and the training iou is %f' % (mean_epoch_loss, mean_iou))
+
+
     return mean_epoch_loss, mean_iou
     # ===============================================================================
+
 
 def convert_seg_split_into_color_image(img):
     color_palette = get_tableau_palette()
@@ -220,22 +399,36 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device:", device)
 
+    # Define directories
+    root_dir = './dataset/'
+    train_dir = root_dir + 'train/'
+    val_dir = root_dir + 'val/'
+    test_dir = root_dir + 'test/'
+
     # TODO: Prepare train and test datasets
     # Load the "dataset" directory using RGBDataset class as a pytorch dataset
     # Split the above dataset into train and test dataset in 9:1 ratio using `torch.utils.data.random_split` method
     # ===============================================================================
+    dataset = RGBDataset(root_dir, has_gt=True)
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [9,1])
     # ===============================================================================
 
     # TODO: Prepare train and test Dataloaders. Use appropriate batch size
     # ===============================================================================
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=True)
     # ===============================================================================
 
     # TODO: Prepare model
     # ===============================================================================
+    model = miniUNet()
+    model.to(device) # QUESTION: should I do this here or in the training loop?
     # ===============================================================================
 
     # TODO: Define criterion, optimizer and learning rate scheduler
     # ===============================================================================
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8) # QUESTION: what hyperparam for Adam?
     # ===============================================================================
 
     # TODO: Train and test the model. 
@@ -244,4 +437,28 @@ if __name__ == "__main__":
     # - Try to achieve Test mIoU >= 0.9 (Note: the value of 0.9 only makes sense if you have sufficiently large test set)
     # - Visualize the performance of a trained model using save_prediction method. Make sure that the predicted segmentation mask is almost correct.
     # ===============================================================================
+    train_loss_list, train_miou_list, test_loss_list, test_miou_list = list(), list(), list(), list()
+    epoch, max_epochs = 0, 50  # TODO: you may want to make changes here
+    best_miou = float('-inf')
+    while epoch <= max_epochs:
+        print('Epoch (', epoch, '/', max_epochs, ')')
+        train_loss, train_miou = run(model, device, train_loader, criterion, optimizer)
+        test_loss, test_miou = run(model, device, test_loader, criterion)
+        train_loss_list.append(train_loss)
+        train_miou_list.append(train_miou)
+        test_loss_list.append(test_loss)
+        test_miou_list.append(test_miou)
+        print('Train loss & mIoU: %0.2f %0.2f' % (train_loss, train_miou))
+        print('Testing loss & mIoU: %0.2f %0.2f' % (test_loss, test_miou))
+        print('---------------------------------')
+        if test_miou > best_miou:
+            best_miou = test_miou
+            save_chkpt(model, epoch, test_miou)
+        epoch += 1
+
+    # Load the best checkpoint, use save_prediction() on the validation set and test set
+    model, epoch, best_miou = load_chkpt(model, 'checkpoint.pth.tar')
+    save_prediction(model, device, test_loader, test_dir)
+    save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_miou_list)
+
     # ===============================================================================

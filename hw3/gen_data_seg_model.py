@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # TODO: setup an appropriate data size
     #   (appropriate == which you think is good enough for training and testing)
     # ==================================================================================
-    dataset_size = 0
+    dataset_size = 500
     # ===============================================================================
 
     object_shapes = [
