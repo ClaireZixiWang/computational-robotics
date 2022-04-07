@@ -74,8 +74,10 @@ if __name__ == "__main__":
         rgb_obs, depth_obs, _ = camera.make_obs(my_camera, view_matrix)
 
         # TODO: now generate the segmentation prediction from the model
-        pred = None  # pred should contain the predicted segmentation mask
-        # ==================================================================================
+        output = model(rgb_obs)
+        _, pred = torch.max(output, dim=1) # pred should contain the predicted segmentation mask
+
+        # pred = None  # pred should contain the predicted segmentation mask        # ==================================================================================
         # ===============================================================================
 
         markers = []
@@ -89,51 +91,60 @@ if __name__ == "__main__":
         obj_index = np.random.choice(np.where(~is_grasped)[0], 1)[0]
 
         # TODO: Mask out the depth based on predicted segmentation mask of object.
-        obj_depth = np.zeros_like(depth_obs)
+        obj_depth = icp.gen_obj_depth(obj_index, depth_obs, pred)
         # ====================================================================================
         # ====================================================================================
 
         # TODO: transform depth to 3d points in camera frame. We will refer to these points as
         #   segmented point cloud or seg_pt_cloud.
-        cam_pts = np.zeros((0,3))
+        # camera_intrinsics = my_camera.compute_camera_matrix()[0]
+        # cam_pts = transforms.depth_to_point_cloud(camera_intrinsics, obj_depth)
+
+
         # ====================================================================================
         # ====================================================================================
-        if cam_pts.shape == (0,):
-            print("No points are present in segmented point cloud. Please check your code. Continuing ...")
-            continue
+        # if cam_pts.shape == (0,):
+            # print("No points are present in segmented point cloud. Please check your code. Continuing ...")
+            # continue
 
         # TODO: transform 3d points (seg_pt_cloud) in camera frame to the world frame
-        world_pts = np.zeros((0,3))
+        # camera_extrinsics = camera.cam_view2pose(view_matrix)
+        world_pts = icp.obj_depth2pts(obj_index, depth_obs, pred, my_camera, view_matrix)
         # ====================================================================================
         # ====================================================================================
 
         world_pts_sample = world_pts[np.random.choice(range(world_pts.shape[0]), num_sample_pts), :]
         # (optional) Uncomment following to visualize points as small red spheres.
         #   These should approximately lie on chosen object index
-        # for position in world_pts_sample:
-        #     markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[1, 0, 0, 0.8]))
+        for position in world_pts_sample:
+            markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[1, 0, 0, 0.8]))
 
         # Sample points from ground truth mesh. 
         # TODO: sample pts from known object mesh. Use object_shapes[obj_index]
         #   to locate path of the mesh.
         # - We will call these points ground truth point cloud or gt_pt_cloud.
         # - Hint: use icp.mesh2pts function from hw2
+        mesh_path = object_meshes[obj_index]
+        mesh = icp.mesh2pts(mesh_path, world_pts_sample.size()[0])
         # ====================================================================================
         # ====================================================================================
 
         # TODO: Align ground truth point cloud (gt_pt_cloud) to segmented 
         #   point cloud (seg_pt_cloud) using ICP.
         # - Hint: use icp.align_pts function from hw2
-        transform = None  # should contain the transformation matrix for transforming
+        # transform = None  # should contain the transformation matrix for transforming
         #  ground truth object point cloud to the segmented object point cloud.
-        transformed = None # should contain transformed ground truth point cloud
+        transform, transformed = icp.align_pts(mesh, 
+                                               world_pts_sample,
+                                               max_iterations=1000,
+                                               threshold=1e-07) # should contain transformed ground truth point cloud
         # ====================================================================================
         # ====================================================================================
 
         # (optional) Uncomment following to visualize transformed points as small black spheres.
         #   These should approximately lie on chosen object index
-        # for position in transformed:
-        #     markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[0, 0, 0, 0.8]))
+        for position in transformed:
+            markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[0, 0, 0, 0.8]))
     
         # TODO: extract grasp position and angle
         position = None  # This should contain the grasp position
