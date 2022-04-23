@@ -29,6 +29,8 @@ class GraspLabeler:
         # TODO: complete this method
         # set gripping point self.coord to the left mouse button clicked point
         # ===============================================================================
+        # QUESTION: was there anything else I need to do? what about the opencv convension 
+        self.coord = (x, y)
         pass
         # ===============================================================================
     
@@ -59,14 +61,15 @@ class GraspLabeler:
                 # rotate gripper counter clockwise by angle_delta
                 # by changing self.angle
                 # ===============================================================================
-                pass
+                self.angle -= self.angle_delta
                 # ===============================================================================
             elif key == ord('d'):
                 # TODO: complete this method
                 # rotate gripper clockwise by angle_delta
                 # by changing self.angle
                 # ===============================================================================
-                pass
+                # pass
+                self.angle += self.angle_delta
                 # ===============================================================================
             elif key == 13:
                 # print('enter')

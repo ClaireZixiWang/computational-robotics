@@ -1,3 +1,4 @@
+from turtle import left
 from typing import Dict, List, Tuple
 
 import os
@@ -5,6 +6,7 @@ import argparse
 from functools import lru_cache
 from random import seed
 import json
+from matplotlib import image
 
 import numpy as np
 from skimage.io import imsave
@@ -98,8 +100,10 @@ def get_center_angle(
     # Why do we need this function?
     # Hint: read get_finger_points
     # Hint: it's a hack
+    # TODO: QUESTION: left-right right - left??
     # ===============================================================================
-    center_coord, angle = None, None
+    center_coord = (left_coord + right_coord) / 2
+    angle = np.arctan2([(right_coord-left_coord)[0]], [(right_coord-left_coord)[1]])[0] * 180 / np.pi
     # ===============================================================================
     return center_coord, angle
 
@@ -109,10 +113,16 @@ class AugmentedDataset(Dataset):
         super().__init__()
         angle_delta = 180/8
         self.rgb_dataset = rgb_dataset
-        self.aug_pipeline = iaa.Sometimes(0.7, iaa.Affine(
-            translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-            rotate=(-angle_delta/2,angle_delta/2),
-        ))
+        self.aug_pipeline = iaa.Sequential([
+            iaa.Sometimes(
+                0.7,
+                iaa.Affine(
+                    translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
+                    rotate=(-angle_delta/2,angle_delta/2),
+                )
+            )
+        ])
+            
     
     def __len__(self) -> int:
         return len(self.rgb_dataset)
@@ -126,7 +136,25 @@ class AugmentedDataset(Dataset):
         # TODO: complete this method 
         # Hint: https://imgaug.readthedocs.io/en/latest/source/examples_keypoints.html 
         # Hint: use get_finger_points and get_center_angle
+        # QUESTION: where do we do the ratation 8 times??? Is it not here?
         # ===============================================================================
+        rgb = data_torch['rgb'].numpy()
+        left, right = get_finger_points(data_torch['center_point'].numpy(), data_torch['angle'].numpy())
+        kps = KeypointsOnImage([
+            Keypoint(x=left[0], y=left[1]),
+            Keypoint(x=right[0], y=right[1]),
+        ], shape = rgb.shape)
+        
+        rgb_aug, kps_aug = self.aug_pipeline(image=rgb, keypoints=kps)
+        center_aug, angle_aug = get_center_angle(kps_aug[0], kps_aug[1])
+
+        # transform the image input
+        data_torch['rgb'] = torch.from_numpy(rgb_aug)
+
+        # transform the keypoints
+        data_torch['center_point'] = torch.from_numpy(center_aug)
+        data_torch['angle'] = torch.from_numpy(angle_aug)
+
 
         # ===============================================================================
         return data_torch

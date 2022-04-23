@@ -50,12 +50,25 @@ class AffordanceDataset(Dataset):
         Note: self.raw_dataset[idx]['rgb'] is torch.Tensor (H,W,3) torch.uint8
         """
         # checkout train.RGBDataset for the content of data
-        data = self.raw_dataset[idx]
+        data = self.raw_dataset[idx] # what's this type? type RGBDataset?
         # TODO: complete this method
         # Hint: Use get_gaussian_scoremap
         # Hint: https://imgaug.readthedocs.io/en/latest/source/examples_keypoints.html
+            # Where do we need to do augmentation here?
         # ===============================================================================
-        return dict()
+        rgb = data['rgb']
+        center = data['center_point']
+
+        affordace_data = {}
+        # transform rgb to the correct size & range
+        affordace_data['input'] = torch.from_numpy(np.transpose(rgb, (1,2,0))/255)
+        assert affordace_data['input'].shape[0] == 3
+        assert affordace_data['input'].shape[1:] == rgb.shape[:2]
+
+        # generate target array using the get_gaussian scoremap
+        affordace_data['target'] = torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center))
+
+        return affordace_data
         # ===============================================================================
 
 
@@ -122,6 +135,8 @@ class AffordanceModel(nn.Module):
         """
         Predict affordance using this model.
         This is required due to BCEWithLogitsLoss
+        Since BCEWithLogitsLoss works directly with logits, the original model does not have sigmoid layer
+            Hence this extra sigmoid "layer" is needed when actually making predictions.
         """
         return torch.sigmoid(self.forward(x))
 
