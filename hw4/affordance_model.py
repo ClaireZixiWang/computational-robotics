@@ -180,15 +180,55 @@ class AffordanceModel(nn.Module):
         device = self.device
         # TODO: complete this method (prediction)
         # Hint: why do we provide the model's device here?
+        rgb_rotate = np.zeros((8, rgb_obs.shape[0], rgb_obs.shape[1],  rgb_obs.shape[2]))
+        for i in range(8):
+            aug = iaa.Affine(rotate=(22.5*i))
+            rgb_rotate[i] = aug(image=rgb_obs)
+
+        # rgb_rotate = rgb_rotate.astype(np.float64)
+
+        print("DEBUGGING: the shape of rgb_rotate is:", rgb_rotate.shape)
+        rgb_torch = torch.permute(torch.from_numpy(rgb_rotate).float(), (0, 3, 1, 2)).to(device)
+
+        assert rgb_torch.shape == (8, 3, 128, 128)
+
+        # why is the prediction EXACTLY the same for everything?
+        prediction = self.predict(rgb_torch)
+        pick = torch.argmax(prediction).int()
+
+        # TODO: is this correct??
+        rotation_category = pick // (128 * 128)
+        y = pick % (128 * 128) // 128
+        x = pick % (128 * 128) % 128
+
+        print("")
+        print("DEBUGGING: rotation = %d, coord = (%f, %f)" % (rotation_category, x, y))
+
+        coord = (x, y)
+        angle = rotation_category * 22.5
+
         # ===============================================================================
-        coord, angle = None, None
         # TODO: complete this method (visualization)
         # :vis_img: np.ndarray(shape=(H,W,3), dtype=np.uint8). Visualize prediction as a RGB image.
         # Hint: use common.draw_grasp
         # Hint: see self.visualize
         # Hint: draw a grey (127,127,127) line on the bottom row of each image.
         # ===============================================================================
-        vis_img = None
+        # TODO: what does this function do???
+        draw_grasp(rgb_obs, coord, angle)
+
+        output_np = prediction[rotation_category].detach().to('cpu').numpy()
+        # print("DEBUGGING: output_np is", output_np)
+        # output_rgb = np.stack((output_np, output_np, output_np)).transpose(1, 2, 0)
+
+
+        # print("DEBUGGING: output_rgb.shape, rgb_obs.shape", output_rgb.shape, rgb_obs.shape)
+        # assert output_rgb.shape == rgb_obs.shape
+
+        vis_img = self.visualize(rgb_obs.transpose(2, 0, 1)/255, output_np)
+        # TODO: stack all 8 together, and do the last line gray thing
+        # vis_img[-1:] = [127] * vis_img.shape[1] * vis_img.shape[2]
+
         # ===============================================================================
         return coord, angle, vis_img
 
