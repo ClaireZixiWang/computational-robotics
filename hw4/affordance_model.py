@@ -61,12 +61,13 @@ class AffordanceDataset(Dataset):
 
         affordace_data = {}
         # transform rgb to the correct size & range
-        affordace_data['input'] = torch.from_numpy(np.transpose(rgb, (1,2,0))/255)
+        affordace_data['input'] = torch.permute(rgb, (2,0,1))/255
         assert affordace_data['input'].shape[0] == 3
         assert affordace_data['input'].shape[1:] == rgb.shape[:2]
 
         # generate target array using the get_gaussian scoremap
-        affordace_data['target'] = torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center))
+        affordace_data['target'] = torch.unsqueeze(torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center.numpy())), 0)
+        # print("DEBUGGING: affordance target shape is:", affordace_data['target'].shape)
 
         return affordace_data
         # ===============================================================================

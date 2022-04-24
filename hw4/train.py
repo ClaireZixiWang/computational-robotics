@@ -103,7 +103,8 @@ def get_center_angle(
     # TODO: QUESTION: left-right right - left??
     # ===============================================================================
     center_coord = (left_coord + right_coord) / 2
-    angle = np.arctan2([(right_coord-left_coord)[0]], [(right_coord-left_coord)[1]])[0] * 180 / np.pi
+    angle = np.arctan2([(right_coord-left_coord)[1]], [(right_coord-left_coord)[0]]) * 180 / np.pi
+    # print("DEBUGGING: center_coord =", center_coord, "angle =", angle)
     # ===============================================================================
     return center_coord, angle
 
@@ -140,13 +141,21 @@ class AugmentedDataset(Dataset):
         # ===============================================================================
         rgb = data_torch['rgb'].numpy()
         left, right = get_finger_points(data_torch['center_point'].numpy(), data_torch['angle'].numpy())
+
+        # QUESTION: which is x and which is y again?
         kps = KeypointsOnImage([
             Keypoint(x=left[0], y=left[1]),
             Keypoint(x=right[0], y=right[1]),
         ], shape = rgb.shape)
         
         rgb_aug, kps_aug = self.aug_pipeline(image=rgb, keypoints=kps)
-        center_aug, angle_aug = get_center_angle(kps_aug[0], kps_aug[1])
+        left_aug = np.array(kps_aug.to_xy_array()[0]) 
+        right_aug = np.array(kps_aug.to_xy_array()[1]) 
+
+        # print("DEBUGGING: kps_aug", kps_aug.to_xy_array())
+        # print("DEBUGGING: left aug is:", left_aug, "right aug is", right_aug)
+
+        center_aug, angle_aug = get_center_angle(left_aug, right_aug)
 
         # transform the image input
         data_torch['rgb'] = torch.from_numpy(rgb_aug)
@@ -155,7 +164,7 @@ class AugmentedDataset(Dataset):
         data_torch['center_point'] = torch.from_numpy(center_aug)
         data_torch['angle'] = torch.from_numpy(angle_aug)
 
-
+        # print("DEBUGGING: shape of rbg image is:", data_torch['rgb'].shape)
         # ===============================================================================
         return data_torch
 
