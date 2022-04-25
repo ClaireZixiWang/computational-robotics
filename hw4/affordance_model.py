@@ -57,19 +57,34 @@ class AffordanceDataset(Dataset):
         # Hint: Use get_gaussian_scoremap
         # Hint: https://imgaug.readthedocs.io/en/latest/source/examples_keypoints.html
             # Where do we need to do augmentation here?
+            # rotate the image and the target mask!!
         # ===============================================================================
-        rgb = data['rgb']
-        center = data['center_point']
+        rgb = data['rgb'].numpy() # transfer tensor to numpy
+        center = data['center_point'].numpy()
+        angle = data['angle'].item()
+
+        # print("DEBUGGING: type of rgb is:", type(rgb))
+        # print("DEBUGGING: shape of rgb is:", rgb.shape)
+        # print("DEBUGGING: type of center is:", type(center))
+
+
+        # rotate the rgb image, center, and the target mask
+        rotation = iaa.Sequential([iaa.Affine(rotate=(-angle))]) # Note that image rotation is the reverse of grasper rotation
+        kps = KeypointsOnImage([Keypoint(x=center[0], y=center[1])], shape = rgb.shape[:2])
+
+        rgb_aug, kps_aug = rotation(image=rgb, keypoints=kps) # rgb is a numpy array
+        center_aug = kps_aug.to_xy_array()[0] # this is a numpy array
+
 
         affordace_data = {}
         # transform rgb to the correct size & range
-        affordace_data['input'] = torch.permute(rgb, (2,0,1))/255
+        affordace_data['input'] = torch.from_numpy(rgb_aug.transpose(2,0,1)/255).float()
         assert affordace_data['input'].shape[0] == 3
         assert affordace_data['input'].shape[1:] == rgb.shape[:2]
 
         # generate target array using the get_gaussian scoremap
-        affordace_data['target'] = torch.unsqueeze(torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center.numpy())), 0)
-        # print("DEBUGGING: affordance target shape is:", affordace_data['target'].shape)
+        affordace_data['target'] = torch.unsqueeze(torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center_aug)), 0)
+        print("DEBUGGING: affordance target shape is:", affordace_data['target'].shape)
 
         return affordace_data
         # ===============================================================================
