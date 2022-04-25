@@ -187,7 +187,10 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         optimizer.zero_grad()
 
         # Forward pass
+        # print("DEBUGGING: the trianing input data looks like:", data)
         output = model(data)
+        # print("DEBUGGING: the trianing out data looks like:", output)
+
         loss = criterion(output, target)
 
         # Backpropagation
@@ -246,6 +249,7 @@ def save_prediction(
             target = sample_batched['target'].numpy()
 
             data = sample_batched['input'].to(model.device)
+            # print("DEBUGGING: the input data looks like:", data)
             output = model.predict(data)
             pred = output.detach().to('cpu').numpy()
 

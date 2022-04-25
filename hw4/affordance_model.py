@@ -1,12 +1,14 @@
 from typing import Tuple, Optional, Dict
 
 import numpy as np
-from matplotlib import cm
+from matplotlib import cm, image
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 import imgaug.augmenters as iaa
 from imgaug.augmentables import Keypoint, KeypointsOnImage
+import imgaug as ia
+# from torchinfo import summary
 
 from common import draw_grasp
 
@@ -139,6 +141,7 @@ class AffordanceModel(nn.Module):
         Since BCEWithLogitsLoss works directly with logits, the original model does not have sigmoid layer
             Hence this extra sigmoid "layer" is needed when actually making predictions.
         """
+        # print("DEBUGGING: model forwad, we have:", self.forward(x))
         return torch.sigmoid(self.forward(x))
 
     @staticmethod
@@ -180,32 +183,52 @@ class AffordanceModel(nn.Module):
         device = self.device
         # TODO: complete this method (prediction)
         # Hint: why do we provide the model's device here?
-        rgb_rotate = np.zeros((8, rgb_obs.shape[0], rgb_obs.shape[1],  rgb_obs.shape[2]))
+
+        # create a batch of rotated images
+        rgb_rotate = []
         for i in range(8):
             aug = iaa.Affine(rotate=(22.5*i))
-            rgb_rotate[i] = aug(image=rgb_obs)
+            rgb_rotate.append(aug(image=rgb_obs))
 
-        # rgb_rotate = rgb_rotate.astype(np.float64)
+        # for i in range(8):
+            # ia.imshow(rgb_rotate[i])
 
-        print("DEBUGGING: the shape of rgb_rotate is:", rgb_rotate.shape)
-        rgb_torch = torch.permute(torch.from_numpy(rgb_rotate).float(), (0, 3, 1, 2)).to(device)
+        # Some image transformation before sending to tensor and gpu
+        rgb_rotate = (np.asarray(rgb_rotate)/255).transpose(0, 3, 1, 2)
+        rgb_torch = torch.from_numpy(rgb_rotate).float().to(device)
 
         assert rgb_torch.shape == (8, 3, 128, 128)
 
-        # why is the prediction EXACTLY the same for everything?
         prediction = self.predict(rgb_torch)
-        pick = torch.argmax(prediction).int()
-
-        # TODO: is this correct??
+        
+        # find the rotation and the coordinate after rotation!
+        pick = torch.argmax(prediction.squeeze()).item()
         rotation_category = pick // (128 * 128)
         y = pick % (128 * 128) // 128
         x = pick % (128 * 128) % 128
 
-        print("")
-        print("DEBUGGING: rotation = %d, coord = (%f, %f)" % (rotation_category, x, y))
+        # print("DEBUGGING: the argmax prediction picking place is:", pick)
 
-        coord = (x, y)
-        angle = rotation_category * 22.5
+        # Rotate the coordinate back to the original image coordinate
+        
+        # kps are draw on the rotated picture,
+        # and then we want to rotate the picture back
+        kps = KeypointsOnImage([
+            Keypoint(x=x, y=y),
+        ], shape=rgb_obs.shape)
+
+        rotate_back = iaa.Sequential([
+            iaa.Affine(rotate=(-22.5*rotation_category))
+        ])
+
+        rotated_rgb = iaa.Affine(rotate=(22.5*rotation_category))(image=rgb_obs)
+
+        _, kpsaug = rotate_back(image=rotated_rgb, keypoints=kps)
+        coord = (int(kpsaug.to_xy_array()[0][0]), int(kpsaug.to_xy_array()[0][1]))
+
+
+        # TODO: something might be a bit off with the angle and the drawing below
+        angle = rotation_category * -22.5
 
         # ===============================================================================
         # TODO: complete this method (visualization)
@@ -216,6 +239,7 @@ class AffordanceModel(nn.Module):
         # ===============================================================================
         # TODO: what does this function do???
         draw_grasp(rgb_obs, coord, angle)
+        rotated_rgb = iaa.Affine(rotate=(22.5*rotation_category))(image=rgb_obs)
 
         output_np = prediction[rotation_category].detach().to('cpu').numpy()
         # print("DEBUGGING: output_np is", output_np)
@@ -224,10 +248,16 @@ class AffordanceModel(nn.Module):
 
         # print("DEBUGGING: output_rgb.shape, rgb_obs.shape", output_rgb.shape, rgb_obs.shape)
         # assert output_rgb.shape == rgb_obs.shape
-
-        vis_img = self.visualize(rgb_obs.transpose(2, 0, 1)/255, output_np)
-        # TODO: stack all 8 together, and do the last line gray thing
+        # TODO: stack all 8 together in the format of their figure, and do the last line gray thing
+        vis_img = []
+        for i in range(8):
+            if i==rotation_category:
+                vis_img.append(self.visualize(rotated_rgb.transpose(2, 0, 1)/255, prediction[i].detach().to('cpu').numpy()))
+            else:
+                vis_img.append(self.visualize(rgb_rotate[i], prediction[i].detach().to('cpu').numpy()))
         # vis_img[-1:] = [127] * vis_img.shape[1] * vis_img.shape[2]
+        vis_img = np.vstack(vis_img)
+        # print("DEBUGGING: vis_img shape", vis_img.shape)
 
         # ===============================================================================
         return coord, angle, vis_img
