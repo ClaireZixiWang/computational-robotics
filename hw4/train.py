@@ -267,6 +267,8 @@ def main():
         help='which model to train: "affordance" or "action_regression"')
     parser.add_argument('-a', '--augmentation', action='store_true',
         help='flag to enable data augmentation')
+    parser.add_argument('-i', '--improve', default=False, action='store_true',
+        help='whether you are at improving stage')
     args = parser.parse_args()
 
     if args.model == 'affordance':
@@ -290,7 +292,10 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device:", device)
 
-    dataset_dir = './data/labels'
+    if args.improve == True:
+        dataset_dir = './data/labels'
+    else:
+        dataset_dir = './data/labels_improve'
     raw_dataset = RGBDataset(dataset_dir)
     train_raw_dataset, test_raw_dataset = random_split(
         raw_dataset, [int(0.9 * len(raw_dataset)), len(raw_dataset) - int(0.9 * len(raw_dataset))])

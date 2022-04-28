@@ -145,7 +145,7 @@ class ActionRegressionModel(nn.Module):
         # Hint: why do we provide the model's device here?
         # ===============================================================================
         # transform the rgb to the right input format
-        rgb_tensor = torch.from_numpy(rgb_obs).permute(2, 0, 1).float().unsqueeze(0)
+        rgb_tensor = torch.from_numpy(rgb_obs).permute(2, 0, 1).float().unsqueeze(0)/255
         rgb_tensor = rgb_tensor.to(device)
 
         # go through the model to get the result

@@ -82,6 +82,9 @@ def main():
     names = get_splits()['train']
     n_picks = 12
 
+    # Improvements:
+    n_picks = 24
+
     out_dir = pathlib.Path('data','labels')
     out_dir.mkdir(parents=True, exist_ok=True)
     label_file = out_dir.joinpath('labels.json')
