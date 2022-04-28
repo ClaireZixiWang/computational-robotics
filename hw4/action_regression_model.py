@@ -40,7 +40,7 @@ class ActionRegressionDataset(Dataset):
         # ===============================================================================
         # transform the rgb input into correct shaped tensor
         regression_data = {}
-        regression_data['input'] = data['rgb'].permute(2, 0, 1).float()
+        regression_data['input'] = (data['rgb'].permute(2, 0, 1)/255).float()
 
         # save the center and the angle as a vector of size 3
         regression_data['target'] = torch.hstack((data['center_point']/128, (data['angle']%180)/180))
@@ -66,7 +66,7 @@ def recover_action(
     # TODO: complete this function
     # ===============================================================================
     # TODO: QUESTION: is the action really numpy array or tensor??
-    coord = (action[0] * shape[0], action[1] * shape[1])
+    coord = (int(action[0] * shape[0]), int(action[1] * shape[1]))
     angle = (action[2]) * 180
     # ===============================================================================
     return coord, angle
@@ -119,6 +119,7 @@ class ActionRegressionModel(nn.Module):
         Visualize rgb input and affordance as a single rgb image.
         """        
         vis_img = (np.moveaxis(input,0,-1).copy() * 255).astype(np.uint8)
+        print("DEBUGGING: vis_img shape first is:", vis_img.shape)
         # target
         if target is not None:
             coord, angle = recover_action(target, shape=vis_img.shape[:2])
@@ -143,8 +144,20 @@ class ActionRegressionModel(nn.Module):
         # TODO: complete this method (prediction)
         # Hint: why do we provide the model's device here?
         # ===============================================================================
-        coord, angle, action = None, None, None
+        # transform the rgb to the right input format
+        rgb_tensor = torch.from_numpy(rgb_obs).permute(2, 0, 1).float().unsqueeze(0)
+        rgb_tensor = rgb_tensor.to(device)
+
+        # go through the model to get the result
+        action = self.predict(rgb_tensor).detach().numpy()[0]
+        print("DEBUGGING: the action is:", action)
+
+        # recover action!
+        coord, angle = recover_action(action)
+
+        # coord, angle, action = None, None, None
         # ===============================================================================
         # visualization
-        vis_img = self.visualize(input, action)
+        vis_img = self.visualize(rgb_tensor.numpy()[0], action)
+        print("DEBUGGING:  vis_image shape is:", vis_img.shape)
         return coord, angle, vis_img
