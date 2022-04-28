@@ -121,7 +121,23 @@ class AugmentedDataset(Dataset):
                     translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
                     rotate=(-angle_delta/2,angle_delta/2),
                 )
-            )
+            ),
+            
+            # Improvements 3: Domain randomization
+            
+            # add gaussian noise.
+            # For 50% of all images, we sample the noise once per pixel.
+            # For the other 50% of all images, we sample the noise per pixel AND
+            # channel. This can change the color (not only brightness) of the
+            # pixels.
+            iaa.Multiply((0.8, 1.2), per_channel=0.2), 
+            
+            # Make some images brighter and some darker.
+            # In 20% of all cases, we sample the multiplier once per channel,
+            # which can end up changing the color of the images.
+            iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
+
+            
         ])
             
     
@@ -286,6 +302,7 @@ def main():
         model_dir = 'data/action_regression'
     chkpt_path = os.path.join(model_dir, 'best.ckpt')
     dump_dir = os.path.join(model_dir, 'training_vis')
+    augmented_dir = os.path.join(model_dir, 'augmented_training_vis')
 
     seed(0)
     torch.manual_seed(0)
@@ -337,6 +354,7 @@ def main():
             best_loss = test_loss
             save_chkpt(model, epoch, test_loss, chkpt_path)
             save_prediction(model, test_loader, dump_dir, BATCH_SIZE)
+            save_prediction(model, train_loader, augmented_dir, BATCH_SIZE)
         epoch += 1
 
 if __name__ == "__main__":
