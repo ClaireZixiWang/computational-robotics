@@ -275,7 +275,10 @@ def main():
         model_class = affordance_model.AffordanceModel
         dataset_class = affordance_model.AffordanceDataset
         max_epochs = 101
-        model_dir = 'data/affordance'
+        if args.improve == False:
+            model_dir = 'data/affordance'
+        else:
+            model_dir = 'data/affordance_improved'
     else:
         model_class = action_regression_model.ActionRegressionModel
         dataset_class = action_regression_model.ActionRegressionDataset
