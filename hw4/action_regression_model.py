@@ -38,7 +38,18 @@ class ActionRegressionDataset(Dataset):
         data = self.raw_dataset[idx]
         # TODO: complete this method
         # ===============================================================================
-        return dict()
+        # transform the rgb input into correct shaped tensor
+        regression_data = {}
+        regression_data['input'] = data['rgb'].permute(2, 0, 1).float()
+
+        # save the center and the angle as a vector of size 3
+        regression_data['target'] = torch.hstack((data['center_point']/128, (data['angle']%180)/180))
+        # print("DEBUGGING: the regression data target is a tensor of shape", regression_data['target'].shape)
+        # print("DEBUGGING: the regression data target looks like", regression_data['target'])
+
+
+
+        return regression_data
         # ===============================================================================
 
 
@@ -54,7 +65,9 @@ def recover_action(
     """
     # TODO: complete this function
     # ===============================================================================
-    coord, angle = None, None
+    # TODO: QUESTION: is the action really numpy array or tensor??
+    coord = (action[0] * shape[0], action[1] * shape[1])
+    angle = (action[2]) * 180
     # ===============================================================================
     return coord, angle
 
@@ -96,7 +109,7 @@ class ActionRegressionModel(nn.Module):
         """
         # TODO: complete this method
         # ===============================================================================
-        return nn.Module()
+        return nn.MSELoss()
         # ===============================================================================
 
     @staticmethod

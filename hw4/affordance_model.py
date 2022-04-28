@@ -84,7 +84,7 @@ class AffordanceDataset(Dataset):
 
         # generate target array using the get_gaussian scoremap
         affordace_data['target'] = torch.unsqueeze(torch.from_numpy(get_gaussian_scoremap(rgb.shape[:2], center_aug)), 0)
-        print("DEBUGGING: affordance target shape is:", affordace_data['target'].shape)
+        # print("DEBUGGING: affordance target shape is:", affordace_data['target'].shape)
 
         return affordace_data
         # ===============================================================================
