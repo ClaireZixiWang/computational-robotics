@@ -3,7 +3,9 @@ import numpy as np
 import os
 import trimesh
 from camera import *
-import image, transforms, ply
+import image
+import transforms
+import ply
 
 
 def mesh2pts(mesh_path, N):
@@ -24,7 +26,9 @@ def obj_mesh2pts(objID, point_num):
     :param point_num: int, number of points to sample
     :return: pts: Numpy array [Nx3], sampled point cloud
     """
-    obj_filename = './YCB_subsubset/' + list_obj_foldername[objID - 1] + '/model_com.obj'  # objects ID start from 1
+    obj_filename = './YCB_subsubset/' + \
+        list_obj_foldername[objID - 1] + \
+        '/model_com.obj'  # objects ID start from 1
     pts = mesh2pts(mesh_path=obj_filename, N=point_num)
     return pts
 
@@ -56,11 +60,13 @@ def obj_depth2pts(objID, depth, mask, camera, view_matrix):
     :return world_pts: Numpy array [Nx3]
     """
     obj_depth = gen_obj_depth(objID, depth, mask)
-    cam_pts = np.asarray(transforms.depth_to_point_cloud(camera.intrinsic_matrix, obj_depth))
+    cam_pts = np.asarray(transforms.depth_to_point_cloud(
+        camera.intrinsic_matrix, obj_depth))
     if len(cam_pts) == 0:
         return
     else:
-        world_pts = transforms.transform_point3s(cam_view2pose(view_matrix), cam_pts)
+        world_pts = transforms.transform_point3s(
+            cam_view2pose(view_matrix), cam_pts)
     return world_pts
 
 
@@ -118,8 +124,10 @@ def estimate_pose(test_ID, depth, mask, camera, view_matrix, pts_type):
                                                max_iterations=1000,
                                                threshold=1e-07)
             # Save predicted pose matrix
-            np.save(dataset_dir + "pred_pose/" + pts_type[:-12] + "/" + str(test_ID) + "_" + str(objID), transform)
-            pts_transformed = np.concatenate((pts_transformed, transformed), axis=0)
+            np.save(dataset_dir + "pred_pose/" +
+                    pts_type[:-12] + "/" + str(test_ID) + "_" + str(objID), transform)
+            pts_transformed = np.concatenate(
+                (pts_transformed, transformed), axis=0)
     export_ply(pts=pts_transformed,
                path=dataset_dir + "exported_ply/" + str(test_ID),
                pts_type=pts_type)
@@ -160,14 +168,20 @@ if __name__ == "__main__":
     ]
 
     for test_ID in range(10):
-        view_matrix = np.load(dataset_dir + "view_matrix/" + str(test_ID) + ".npy")
-        depth = image.read_depth(dataset_dir + "depth/" + str(test_ID) + "_depth.png")
-        gt_mask = image.read_mask(dataset_dir + "gt/" + str(test_ID) + "_gt.png")
-        pred_mask = denoise_mask(image.read_mask(dataset_dir + "pred/" + str(test_ID) + "_pred.png"))
+        view_matrix = np.load(
+            dataset_dir + "view_matrix/" + str(test_ID) + ".npy")
+        depth = image.read_depth(
+            dataset_dir + "depth/" + str(test_ID) + "_depth.png")
+        gt_mask = image.read_mask(
+            dataset_dir + "gt/" + str(test_ID) + "_gt.png")
+        pred_mask = denoise_mask(image.read_mask(
+            dataset_dir + "pred/" + str(test_ID) + "_pred.png"))
         pts_gtmask = obj_depth2pts(-1, depth, gt_mask, my_camera, view_matrix)
         export_ply(pts=pts_gtmask,
-                path=dataset_dir + "exported_ply/" + str(test_ID),
-                pts_type="gtmask")
-        estimate_pose(test_ID, depth, gt_mask, my_camera, view_matrix, pts_type="gtmask_transformed")
-        estimate_pose(test_ID, depth, pred_mask, my_camera, view_matrix, pts_type="predmask_transformed")
+                   path=dataset_dir + "exported_ply/" + str(test_ID),
+                   pts_type="gtmask")
+        estimate_pose(test_ID, depth, gt_mask, my_camera,
+                      view_matrix, pts_type="gtmask_transformed")
+        estimate_pose(test_ID, depth, pred_mask, my_camera,
+                      view_matrix, pts_type="predmask_transformed")
         break

@@ -9,7 +9,8 @@ import tsdf
 if __name__ == "__main__":
     # Set bounds based on max and min in each dimension in the world space.
     image_count = 10
-    camera_intrensics = np.loadtxt("./data/camera-intrinsics.txt", delimiter=' ')
+    camera_intrensics = np.loadtxt(
+        "./data/camera-intrinsics.txt", delimiter=' ')
     volume_bounds = np.array([[-0.75,  0.75], [-0.75, 0.75], [0., 0.8]])
 
     # Initialize voxel volume
@@ -19,15 +20,16 @@ if __name__ == "__main__":
     # Loop through RGB-D images and fuse them together
     start_time = time.time()
     for i in range(image_count):
-        print("Fusing frame %d/%d"%(i+1, image_count))
+        print("Fusing frame %d/%d" % (i+1, image_count))
 
         # Read RGB-D image and camera pose
-        color_image = read_rgb("./data/frame-%06d.color.png"%(i))
-        depth_image = read_depth("./data/frame-%06d.depth.png"%(i))
-        camera_pose = np.loadtxt("./data/frame-%06d.pose.txt"%(i))
+        color_image = read_rgb("./data/frame-%06d.color.png" % (i))
+        depth_image = read_depth("./data/frame-%06d.depth.png" % (i))
+        camera_pose = np.loadtxt("./data/frame-%06d.pose.txt" % (i))
 
         # Integrate observation into voxel volume (assume color aligned with depth)
-        tsdf_volume.integrate(color_image, depth_image, camera_intrensics, camera_pose, observation_weight=1.)
+        tsdf_volume.integrate(
+            color_image, depth_image, camera_intrensics, camera_pose, observation_weight=1.)
 
     fps = image_count / (time.time() - start_time)
     print("Average FPS: {:.2f}".format(fps))

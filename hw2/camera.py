@@ -11,6 +11,7 @@ class Camera(object):
     Class to define a camera.
     Modified from Zhenjia Xu's camera setting.
     """
+
     def __init__(self, image_size, near, far, fov_width):
         """
         In:
@@ -30,8 +31,10 @@ class Camera(object):
         self.near = near
         self.far = far
         self.fov_width = fov_width
-        self.focal_length = (float(self.image_size[1]) / 2) / np.tan((np.pi * self.fov_width / 180) / 2)
-        self.fov_height = (math.atan((float(self.image_size[0]) / 2) / self.focal_length) * 2 / np.pi) * 180
+        self.focal_length = (
+            float(self.image_size[1]) / 2) / np.tan((np.pi * self.fov_width / 180) / 2)
+        self.fov_height = (math.atan(
+            (float(self.image_size[0]) / 2) / self.focal_length) * 2 / np.pi) * 180
         self.intrinsic_matrix, self.projection_matrix = self.compute_camera_matrix()
 
     def compute_camera_matrix(self):
@@ -46,28 +49,28 @@ class Camera(object):
         """
 
         # TODO: compute camera intrinsic_matrix from camera parameters
-        
+
         #                       f_x 0 o_x
         # intrisic_matrix = K = 0 f_y o_y    # here we assume f_x = f_y
         #                       0  0  1
-        
+
         width = self.image_size[1]
         height = self.image_size[0]
 
-        intrinsic_matrix = np.eye(3)  
+        intrinsic_matrix = np.eye(3)
         intrinsic_matrix[0][0] = self.focal_length
         intrinsic_matrix[1][1] = self.focal_length
-        intrinsic_matrix[0][2] = width/2 # o_x = x coordinate center of image = half of image width
+        # o_x = x coordinate center of image = half of image width
+        intrinsic_matrix[0][2] = width/2
         intrinsic_matrix[1][2] = height/2
 
         # print("Printing intrinsic_matrix: ")
         # print(intrinsic_matrix)
 
-        
         # TODO: compute projection_matrix from camera parameters
-        projection_matrix = p.computeProjectionMatrixFOV(self.fov_height, width/height, self.near, self.far)
-         
-    
+        projection_matrix = p.computeProjectionMatrixFOV(
+            self.fov_height, width/height, self.near, self.far)
+
         return intrinsic_matrix, projection_matrix
 
 
@@ -111,17 +114,23 @@ def make_obs(camera, view_matrix):
         need_convert = True
 
     if need_convert:
-        rgb_pixels = np.asarray(obs[2]).reshape(camera.image_size[0], camera.image_size[1], 4)
+        rgb_pixels = np.asarray(obs[2]).reshape(
+            camera.image_size[0], camera.image_size[1], 4)
         rgb_obs = rgb_pixels[:, :, :3]
-        z_buffer = np.asarray(obs[3]).reshape(camera.image_size[0], camera.image_size[1])
-        depth_obs = camera.far * camera.near / (camera.far - (camera.far - camera.near) * z_buffer)
-        mask_obs = np.asarray(obs[4]).reshape(camera.image_size[0], camera.image_size[1])
+        z_buffer = np.asarray(obs[3]).reshape(
+            camera.image_size[0], camera.image_size[1])
+        depth_obs = camera.far * camera.near / \
+            (camera.far - (camera.far - camera.near) * z_buffer)
+        mask_obs = np.asarray(obs[4]).reshape(
+            camera.image_size[0], camera.image_size[1])
     else:
         rgb_obs = obs[2][:, :, :3]
-        depth_obs = camera.far * camera.near / (camera.far - (camera.far - camera.near) * obs[3])
+        depth_obs = camera.far * camera.near / \
+            (camera.far - (camera.far - camera.near) * obs[3])
         mask_obs = obs[4]
 
-    mask_obs[mask_obs == -1] = 0  # label empty space as 0, the same as the plane
+    # label empty space as 0, the same as the plane
+    mask_obs[mask_obs == -1] = 0
     return rgb_obs, depth_obs, mask_obs
 
 
@@ -147,8 +156,9 @@ def save_obs(dataset_dir, camera, num_obs, scene_id, is_valset=False):
             upAxisIndex=2,
         )
         rgb_obs, depth_obs, mask_obs = make_obs(camera, view_matrix)
-        rgb_name = dataset_dir + "rgb/" + str(i + scene_id * num_obs) + "_rgb.png"
+        rgb_name = dataset_dir + "rgb/" + \
+            str(i + scene_id * num_obs) + "_rgb.png"
         image.write_rgb(rgb_obs.astype(np.uint8), rgb_name)
-        mask_name = dataset_dir + "gt/" + str(i + scene_id * num_obs) + "_gt.png"
+        mask_name = dataset_dir + "gt/" + \
+            str(i + scene_id * num_obs) + "_gt.png"
         image.write_mask(mask_obs, mask_name)
-

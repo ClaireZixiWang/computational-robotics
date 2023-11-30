@@ -24,7 +24,7 @@ if __name__ == "__main__":
         "assets/objects/custom.urdf",
     ]
 
-    env = sim.PyBulletSim(object_shapes = object_shapes, gui=False)
+    env = sim.PyBulletSim(object_shapes=object_shapes, gui=False)
 
     # setup camera
     my_camera = camera.Camera(
@@ -33,9 +33,11 @@ if __name__ == "__main__":
         far=10.0,
         fov_w=50
     )
-    camera_target_position = (env._workspace1_bounds[:, 0] + env._workspace1_bounds[:, 1]) / 2
+    camera_target_position = (
+        env._workspace1_bounds[:, 0] + env._workspace1_bounds[:, 1]) / 2
     camera_target_position[2] = 0
-    camera_distance = np.sqrt(((np.array([0.5, -0.5, 0.8]) - camera_target_position)**2).sum())
+    camera_distance = np.sqrt(
+        ((np.array([0.5, -0.5, 0.8]) - camera_target_position)**2).sum())
     view_matrix = p.computeViewMatrixFromYawPitchRoll(
         cameraTargetPosition=camera_target_position,
         distance=camera_distance,

@@ -18,16 +18,16 @@ def transform_is_valid(t, tolerance=1e-3):
     # check for general shape of the transformation matrix
     # this actually violates the input requirement in documentation?
 
-    if t.shape != (4,4):
+    if t.shape != (4, 4):
         return False
 
-    rotation = t[:3,:3]
-    translation = t[:3,3:].flatten()
-    zeros = t[3:,:3]
+    rotation = t[:3, :3]
+    translation = t[:3, 3:].flatten()
+    zeros = t[3:, :3]
     one = t[3][3]
 
-
-    return np.allclose(np.linalg.inv(rotation), rotation.T, atol=tolerance) and np.allclose(zeros, [0,0,0], atol=tolerance) and np.allclose(one, 1, atol=tolerance) and np.isclose(np.linalg.det(rotation), 1, atol=tolerance) # is this the right way to use atol?
+    # is this the right way to use atol?
+    return np.allclose(np.linalg.inv(rotation), rotation.T, atol=tolerance) and np.allclose(zeros, [0, 0, 0], atol=tolerance) and np.allclose(one, 1, atol=tolerance) and np.isclose(np.linalg.det(rotation), 1, atol=tolerance)
 
     # pass
 
@@ -51,7 +51,7 @@ def transform_concat(t1, t2):
         raise ValueError('Invalid input transform t1')
     if not transform_is_valid(t2):
         raise ValueError('Invalid input transform t2')
-    return np.matmul(t1, t2) # this means first apply t2, then apply t1
+    return np.matmul(t1, t2)  # this means first apply t2, then apply t1
     # pass
 
 
@@ -76,14 +76,13 @@ def transform_point3s(t, ps):
 
     # transpose the points for matrix multiplication, then stack a row of 1's
     stacked_points = np.vstack((ps.T, [1]*ps.shape[0]))
-    
+
     assert stacked_points.shape[0] == 4
-    
+
     # get rid of the stacked 1's, and transpose the points back to required shape
     transformed_points = np.matmul(t, stacked_points)
 
     return transformed_points[:-1].T
-
 
     # return np.matmul(t, ps)
     # pass
@@ -130,15 +129,17 @@ def camera_to_image(intrinsics, camera_points):
 
     u0 = intrinsics[0, 2]
     v0 = intrinsics[1, 2]
-    fu = intrinsics[0, 0] # what's this
-    fv = intrinsics[1, 1] # what's this?
+    fu = intrinsics[0, 0]  # what's this
+    fv = intrinsics[1, 1]  # what's this?
     # is this the focal length? If so, why are they different?
 
     # find u, v int coords
     image_coordinates = np.empty((camera_points.shape[0], 2), dtype=np.int64)
     for i in prange(camera_points.shape[0]):
-        image_coordinates[i, 0] = int(np.round((camera_points[i, 0] * fu / camera_points[i, 2]) + u0))
-        image_coordinates[i, 1] = int(np.round((camera_points[i, 1] * fv / camera_points[i, 2]) + v0))
+        image_coordinates[i, 0] = int(
+            np.round((camera_points[i, 0] * fu / camera_points[i, 2]) + u0))
+        image_coordinates[i, 1] = int(
+            np.round((camera_points[i, 1] * fv / camera_points[i, 2]) + v0))
 
     return image_coordinates
 
@@ -162,9 +163,8 @@ def depth_to_point_cloud(intrinsics, depth_image):
     fu = intrinsics[0, 0]
     fv = intrinsics[1, 1]
 
-
-    for v in prange(depth_image.shape[0]): # for every row in the depth image
-        for u in prange(depth_image.shape[1]): # for every pixel in the row
+    for v in prange(depth_image.shape[0]):  # for every row in the depth image
+        for u in prange(depth_image.shape[1]):  # for every pixel in the row
             # v is the horizontal (x) image coordinate value
             # u is the vertical (y) image coordinate value
 
@@ -176,5 +176,5 @@ def depth_to_point_cloud(intrinsics, depth_image):
 
     # assert point_cloud.shape[1] == 3
     return np.array(point_cloud)
-   
+
     # pass

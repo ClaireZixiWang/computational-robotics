@@ -7,6 +7,7 @@ import camera
 from assets.ycb_objects import getURDFPath
 from control import get_movej_trajectory
 
+
 class UR5PickEnviornment:
     def __init__(self, gui=True):
         # 0 load environment
@@ -50,7 +51,8 @@ class UR5PickEnviornment:
         ])
         # 3D workspace for tote 2
         self._workspace2_bounds = np.copy(self._workspace1_bounds)
-        self._workspace2_bounds[0, :] = - self._workspace2_bounds[0, ::-1]        # Load totes and fix them to their position
+        # Load totes and fix them to their position
+        self._workspace2_bounds[0, :] = - self._workspace2_bounds[0, ::-1]
         # Load totes and fix them to their position
         self._tote1_position = (
             self._workspace1_bounds[:, 0] + self._workspace1_bounds[:, 1]) / 2
@@ -83,7 +85,7 @@ class UR5PickEnviornment:
         for i in range(p.getNumJoints(self._gripper_body_id)):
             p.changeDynamics(self._gripper_body_id, i, lateralFriction=1.0, spinningFriction=1.0,
                              rollingFriction=0.0001, frictionAnchor=True)
-        
+
         self.set_joints(self.robot_home_joint_config)
 
         # 4 load camera
@@ -93,9 +95,11 @@ class UR5PickEnviornment:
             far=10.0,
             fov_w=80
         )
-        camera_target_position = (self._workspace1_bounds[:, 0] + self._workspace1_bounds[:, 1]) / 2
+        camera_target_position = (
+            self._workspace1_bounds[:, 0] + self._workspace1_bounds[:, 1]) / 2
         camera_target_position[2] = 0
-        camera_distance = np.sqrt(((np.array([0.5, -0.5, 0.5]) - camera_target_position)**2).sum())
+        camera_distance = np.sqrt(
+            ((np.array([0.5, -0.5, 0.5]) - camera_target_position)**2).sum())
         self.view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=camera_target_position,
             distance=camera_distance,
@@ -107,10 +111,10 @@ class UR5PickEnviornment:
 
         # 5. prepare loading objects
         self.object_ids = list()
-    
+
     def camera_to_world(self, cam_coords):
         pose = camera.cam_view2pose(self.view_matrix)
-        world_coords = cam_coords @ pose[:3,:3].T + pose[:3,3]
+        world_coords = cam_coords @ pose[:3, :3].T + pose[:3, 3]
         return world_coords
 
     def pixel_to_world(self, img_x, img_y, depth):
@@ -118,12 +122,12 @@ class UR5PickEnviornment:
         CV Coordinte Convension
         """
         intrinsics = self.camera.intrinsic_matrix
-        fx = intrinsics[0,0]
+        fx = intrinsics[0, 0]
         fy = intrinsics[1, 1]
-        cx, cy = intrinsics[:2,2]
+        cx, cy = intrinsics[:2, 2]
         x = (img_x - cx) * depth / fx
         y = (img_y - cy) * depth / fy
-        cam_coords = np.array([x,y,depth], dtype=np.float32)
+        cam_coords = np.array([x, y, depth], dtype=np.float32)
         world_coords = self.camera_to_world(cam_coords)
         return world_coords
 
@@ -139,22 +143,23 @@ class UR5PickEnviornment:
         for name in name_list:
             urdf_path = getURDFPath(name)
             position, orientation = self.get_random_pose(rs)
-            obj_id = p.loadURDF(urdf_path, 
-                position, p.getQuaternionFromEuler(orientation))
+            obj_id = p.loadURDF(urdf_path,
+                                position, p.getQuaternionFromEuler(orientation))
             self.object_ids.append(obj_id)
         self.step_simulation(1e3)
 
     def observe(self):
-        rgb_obs, depth_obs, mask_obs = camera.make_obs(self.camera, self.view_matrix)
+        rgb_obs, depth_obs, mask_obs = camera.make_obs(
+            self.camera, self.view_matrix)
         return rgb_obs, depth_obs, mask_obs
-    
+
     def get_random_pose(self, rs):
-        low = self._workspace1_bounds[:,0].copy()
+        low = self._workspace1_bounds[:, 0].copy()
         low[-1] += 0.2
-        high = self._workspace1_bounds[:,1].copy()
+        high = self._workspace1_bounds[:, 1].copy()
         high[-1] += 0.2
         position = rs.uniform(low, high, size=3)
-        orientation = rs.uniform(-np.pi, np.pi,size=3)
+        orientation = rs.uniform(-np.pi, np.pi, size=3)
         return position, orientation
 
     def reset_objects(self, seed=None):
@@ -164,12 +169,12 @@ class UR5PickEnviornment:
             p.resetBasePositionAndOrientation(
                 obj_id, position, p.getQuaternionFromEuler(orientation))
         self.step_simulation(1e3)
-    
+
     def remove_objects(self):
         for obj_id in self.object_ids:
             p.removeBody(obj_id)
         self.object_ids = list()
-    
+
     def set_joints(self, target_joint_state, steps=1e2):
         assert len(self._robot_joint_indices) == len(target_joint_state)
         for joint, value in zip(self._robot_joint_indices, target_joint_state):
@@ -179,9 +184,9 @@ class UR5PickEnviornment:
 
     def num_object_in_tote1(self):
         num_in = 0
-        low = self._workspace1_bounds[:,0].copy()
+        low = self._workspace1_bounds[:, 0].copy()
         low -= 0.2
-        high = self._workspace1_bounds[:,1].copy()
+        high = self._workspace1_bounds[:, 1].copy()
         high += 0.2
 
         for object_id in self.object_ids:
@@ -199,19 +204,20 @@ class UR5PickEnviornment:
         """
         assert len(self._robot_joint_indices) == len(target_joint_state)
         dt = 1./240
-        q_current = np.array([x[0] for x in p.getJointStates(self.robot_body_id, self._robot_joint_indices)])
+        q_current = np.array([x[0] for x in p.getJointStates(
+            self.robot_body_id, self._robot_joint_indices)])
         q_target = np.array(target_joint_state)
-        q_traj = get_movej_trajectory(q_current, q_target, 
-            acceleration=acceleration, speed=speed)
+        q_traj = get_movej_trajectory(q_current, q_target,
+                                      acceleration=acceleration, speed=speed)
         qdot_traj = np.gradient(q_traj, dt, axis=0)
         p_gain = 1 * np.ones(len(self._robot_joint_indices))
         d_gain = 1 * np.ones(len(self._robot_joint_indices))
 
         for i in range(len(q_traj)):
             p.setJointMotorControlArray(
-                bodyUniqueId=self.robot_body_id, 
+                bodyUniqueId=self.robot_body_id,
                 jointIndices=self._robot_joint_indices,
-                controlMode=p.POSITION_CONTROL, 
+                controlMode=p.POSITION_CONTROL,
                 targetPositions=q_traj[i],
                 targetVelocities=qdot_traj[i],
                 positionGains=p_gain,
@@ -225,17 +231,19 @@ class UR5PickEnviornment:
             @param position: Target position of the end-effector link
             @param orientation: Target orientation of the end-effector link
         """
-        target_joint_state = np.zeros((6,))  # this should contain appropriate joint angle values
+        target_joint_state = np.zeros(
+            (6,))  # this should contain appropriate joint angle values
         # ========= TODO: Part 1 ========
         # Using inverse kinematics (p.calculateInverseKinematics), find out the target joint configuration of the robot
         # in order to reach the desired end_effector position and orientation
-        # HINT: p.calculateInverseKinematics takes in the end effector **link index** and not the **joint index**. You can use 
-        #   self.robot_end_effector_link_index for this 
+        # HINT: p.calculateInverseKinematics takes in the end effector **link index** and not the **joint index**. You can use
+        #   self.robot_end_effector_link_index for this
         # HINT: You might want to tune optional parameters of p.calculateInverseKinematics for better performance
         # ===============================
         target_joint_state[:] = p.calculateInverseKinematics(
             self.robot_body_id, self.robot_end_effector_link_index, position, orientation, maxNumIterations=100)
-        self.move_joints(target_joint_state, acceleration=acceleration, speed=speed)
+        self.move_joints(target_joint_state,
+                         acceleration=acceleration, speed=speed)
 
     def robot_go_home(self, speed=3.0):
         self.move_joints(self.robot_home_joint_config, speed=speed)
@@ -302,18 +310,20 @@ class UR5PickEnviornment:
             0, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0], speed=6.0)
         self.open_gripper()
         self.robot_go_home(speed=6.0)
-        
+
     def step_simulation(self, num_steps):
         for i in range(int(num_steps)):
             p.stepSimulation()
             if self._gripper_body_id is not None:
                 # Constraints
                 gripper_joint_positions = np.array([p.getJointState(self._gripper_body_id, i)[
-                                                0] for i in range(p.getNumJoints(self._gripper_body_id))])
+                    0] for i in range(p.getNumJoints(self._gripper_body_id))])
                 p.setJointMotorControlArray(
-                    self._gripper_body_id, [6, 3, 8, 5, 10], p.POSITION_CONTROL,
+                    self._gripper_body_id, [
+                        6, 3, 8, 5, 10], p.POSITION_CONTROL,
                     [
-                        gripper_joint_positions[1], -gripper_joint_positions[1], 
+                        gripper_joint_positions[1], -
+                        gripper_joint_positions[1],
                         -gripper_joint_positions[1], gripper_joint_positions[1],
                         gripper_joint_positions[1]
                     ],

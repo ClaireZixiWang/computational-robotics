@@ -9,6 +9,7 @@ class PyBulletSim:
     PyBulletSim: Implements two tote UR5 simulation environment with obstacles for grasping 
         and manipulation
     """
+
     def __init__(self, use_random_objects=False, object_shapes=None, gui=True):
         # 3D workspace for tote 1
         self._workspace1_bounds = np.array([
@@ -25,7 +26,7 @@ class PyBulletSim:
             p.connect(p.GUI)
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
             p.resetDebugVisualizerCamera(
-                cameraDistance=2.5, 
+                cameraDistance=2.5,
                 cameraYaw=45, cameraPitch=-45,
                 cameraTargetPosition=np.zeros(3))
         else:
@@ -58,13 +59,12 @@ class PyBulletSim:
 
         # Robot home joint configuration (over tote 1)
         self.robot_home_joint_config = np.array([-np.pi, -
-                                        np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0])
+                                                 np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0])
         # Robot goal joint configuration (over tote 1)
         self.robot_goal_joint_config = np.array([
             0, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0])
 
         self.move_joints(self.robot_home_joint_config, speed=1.0)
-
 
         # Load totes and fix them to their position
         self._tote1_position = (
@@ -101,9 +101,11 @@ class PyBulletSim:
             i % len(self._object_shapes) for i in range(self._num_objects)]
         self._objects_body_ids = []
         for i in range(self._num_objects):
-            object_body_id = p.loadURDF(self._object_shapes[i], [ 0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
+            object_body_id = p.loadURDF(self._object_shapes[i], [
+                                        0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
             self._objects_body_ids.append(object_body_id)
-            p.changeVisualShape(object_body_id, -1, rgbaColor=[*self._object_colors[i], 1])
+            p.changeVisualShape(object_body_id, -1,
+                                rgbaColor=[*self._object_colors[i], 1])
         self.reset_objects()
 
         # Add obstacles
@@ -187,30 +189,29 @@ class PyBulletSim:
                 break
             self.step_simulation(1)
 
-
     def move_tool(self, position, orientation, speed=0.03):
         """
             Move robot tool (end-effector) to a specified pose
             @param position: Target position of the end-effector link
             @param orientation: Target orientation of the end-effector link
         """
-        target_joint_state = np.zeros(6)  # this should contain appropriate joint angle values
+        target_joint_state = np.zeros(
+            6)  # this should contain appropriate joint angle values
         # ========= TODO: Problem 1 ========
         # Using inverse kinematics (p.calculateInverseKinematics), find out the target joint configuration of the robot
         # in order to reach the desired end_effector position and orientation
-        # HINT: p.calculateInverseKinematics takes in the end effector **link index** and not the **joint index**. You can use 
-        #   self.robot_end_effector_link_index for this 
+        # HINT: p.calculateInverseKinematics takes in the end effector **link index** and not the **joint index**. You can use
+        #   self.robot_end_effector_link_index for this
         # HINT: You might want to tune optional parameters of p.calculateInverseKinematics for better performance
-        target_joint_state = p.calculateInverseKinematics(bodyUniqueId=self.robot_body_id, 
-                                                          endEffectorLinkIndex=self.robot_end_effector_link_index, 
-                                                          targetPosition=position, 
+        target_joint_state = p.calculateInverseKinematics(bodyUniqueId=self.robot_body_id,
+                                                          endEffectorLinkIndex=self.robot_end_effector_link_index,
+                                                          targetPosition=position,
                                                           targetOrientation=orientation,
                                                           maxNumIterations=50)
         # print("DEBUG: type of target_joint_state is:", type(target_joint_state))
         # print("DEBUG: len of target_joint_state is:", len(target_joint_state))
         # print("DEBUG: target_joint_state is:", target_joint_state)
 
-        
         # ===============================
         self.move_joints(target_joint_state)
 
@@ -242,7 +243,7 @@ class PyBulletSim:
             [np.pi, 0, grasp_angle])
         pre_grasp_position_over_bin = grasp_position+np.array([0, 0, 0.3])
         pre_grasp_position_over_object = grasp_position+np.array([0, 0, 0.1])
-        post_grasp_position = grasp_position+np.array([0, 0, 0.3]) 
+        post_grasp_position = grasp_position+np.array([0, 0, 0.3])
         grasp_success = False
         # ========= TODO: Problem 2 (b) ============
         # Implement the following grasp sequence:
@@ -280,11 +281,13 @@ class PyBulletSim:
             if self._gripper_body_id is not None:
                 # Constraints
                 gripper_joint_positions = np.array([p.getJointState(self._gripper_body_id, i)[
-                                                0] for i in range(p.getNumJoints(self._gripper_body_id))])
+                    0] for i in range(p.getNumJoints(self._gripper_body_id))])
                 p.setJointMotorControlArray(
-                    self._gripper_body_id, [6, 3, 8, 5, 10], p.POSITION_CONTROL,
+                    self._gripper_body_id, [
+                        6, 3, 8, 5, 10], p.POSITION_CONTROL,
                     [
-                        gripper_joint_positions[1], -gripper_joint_positions[1], 
+                        gripper_joint_positions[1], -
+                        gripper_joint_positions[1],
                         -gripper_joint_positions[1], gripper_joint_positions[1],
                         gripper_joint_positions[1]
                     ],
@@ -338,11 +341,12 @@ class SphereMarker:
             self.debug_item_ids.append(
                 p.addUserDebugText(text, position + radius)
             )
-        
+
         if orientation is not None:
             # x axis
             axis_size = 2 * radius
-            rotation_mat = np.asarray(p.getMatrixFromQuaternion(orientation)).reshape(3,3)
+            rotation_mat = np.asarray(
+                p.getMatrixFromQuaternion(orientation)).reshape(3, 3)
 
             # x axis
             x_end = np.array([[axis_size, 0, 0]]).transpose()
@@ -393,4 +397,3 @@ def get_tableau_palette():
         dtype=np.float
     )
     return palette / 255.
-

@@ -33,10 +33,10 @@ if __name__ == "__main__":
         "assets/objects/rod.obj",
         "assets/objects/custom.obj",
     ]
-    env = sim.PyBulletSim(object_shapes = object_shapes)
+    env = sim.PyBulletSim(object_shapes=object_shapes)
     env.load_gripper()
 
-    # setup camera (this should be consistent with the camera 
+    # setup camera (this should be consistent with the camera
     #   used during training segmentation model)
     my_camera = camera.Camera(
         image_size=(480, 640),
@@ -44,9 +44,11 @@ if __name__ == "__main__":
         far=10.0,
         fov_w=50
     )
-    camera_target_position = (env._workspace1_bounds[:, 0] + env._workspace1_bounds[:, 1]) / 2
+    camera_target_position = (
+        env._workspace1_bounds[:, 0] + env._workspace1_bounds[:, 1]) / 2
     camera_target_position[2] = 0
-    camera_distance = np.sqrt(((np.array([0.5, -0.5, 0.8]) - camera_target_position)**2).sum())
+    camera_distance = np.sqrt(
+        ((np.array([0.5, -0.5, 0.8]) - camera_target_position)**2).sum())
     view_matrix = p.computeViewMatrixFromYawPitchRoll(
         cameraTargetPosition=camera_target_position,
         distance=camera_distance,
@@ -59,12 +61,13 @@ if __name__ == "__main__":
     # Prepare model (again, should be consistent with segmentation training)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_channels = 3  # RGB
-    n_classes = len(object_shapes) + 1  # number of objects + 1 for background class
+    # number of objects + 1 for background class
+    n_classes = len(object_shapes) + 1
     model = train_seg_model.miniUNet(n_channels, n_classes)
     model.to(device)
-    model, _, _ = train_seg_model.load_chkpt(model, 'checkpoint_multi.pth.tar', device)
+    model, _, _ = train_seg_model.load_chkpt(
+        model, 'checkpoint_multi.pth.tar', device)
     model.eval()
-
 
     obj_ids = env._objects_body_ids  # everything else will be treated as background
 
@@ -75,7 +78,8 @@ if __name__ == "__main__":
 
         # TODO: now generate the segmentation prediction from the model
         output = model(rgb_obs)
-        _, pred = torch.max(output, dim=1) # pred should contain the predicted segmentation mask
+        # pred should contain the predicted segmentation mask
+        _, pred = torch.max(output, dim=1)
 
         # pred = None  # pred should contain the predicted segmentation mask        # ==================================================================================
         # ===============================================================================
@@ -100,26 +104,28 @@ if __name__ == "__main__":
         # camera_intrinsics = my_camera.compute_camera_matrix()[0]
         # cam_pts = transforms.depth_to_point_cloud(camera_intrinsics, obj_depth)
 
-
         # ====================================================================================
         # ====================================================================================
         # if cam_pts.shape == (0,):
-            # print("No points are present in segmented point cloud. Please check your code. Continuing ...")
-            # continue
+        # print("No points are present in segmented point cloud. Please check your code. Continuing ...")
+        # continue
 
         # TODO: transform 3d points (seg_pt_cloud) in camera frame to the world frame
         # camera_extrinsics = camera.cam_view2pose(view_matrix)
-        world_pts = icp.obj_depth2pts(obj_index, depth_obs, pred, my_camera, view_matrix)
+        world_pts = icp.obj_depth2pts(
+            obj_index, depth_obs, pred, my_camera, view_matrix)
         # ====================================================================================
         # ====================================================================================
 
-        world_pts_sample = world_pts[np.random.choice(range(world_pts.shape[0]), num_sample_pts), :]
+        world_pts_sample = world_pts[np.random.choice(
+            range(world_pts.shape[0]), num_sample_pts), :]
         # (optional) Uncomment following to visualize points as small red spheres.
         #   These should approximately lie on chosen object index
         for position in world_pts_sample:
-            markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[1, 0, 0, 0.8]))
+            markers.append(sim.SphereMarker(position=position,
+                           radius=0.001, rgba_color=[1, 0, 0, 0.8]))
 
-        # Sample points from ground truth mesh. 
+        # Sample points from ground truth mesh.
         # TODO: sample pts from known object mesh. Use object_shapes[obj_index]
         #   to locate path of the mesh.
         # - We will call these points ground truth point cloud or gt_pt_cloud.
@@ -129,23 +135,24 @@ if __name__ == "__main__":
         # ====================================================================================
         # ====================================================================================
 
-        # TODO: Align ground truth point cloud (gt_pt_cloud) to segmented 
+        # TODO: Align ground truth point cloud (gt_pt_cloud) to segmented
         #   point cloud (seg_pt_cloud) using ICP.
         # - Hint: use icp.align_pts function from hw2
         # transform = None  # should contain the transformation matrix for transforming
         #  ground truth object point cloud to the segmented object point cloud.
-        transform, transformed = icp.align_pts(mesh, 
+        transform, transformed = icp.align_pts(mesh,
                                                world_pts_sample,
                                                max_iterations=1000,
-                                               threshold=1e-07) # should contain transformed ground truth point cloud
+                                               threshold=1e-07)  # should contain transformed ground truth point cloud
         # ====================================================================================
         # ====================================================================================
 
         # (optional) Uncomment following to visualize transformed points as small black spheres.
         #   These should approximately lie on chosen object index
         for position in transformed:
-            markers.append(sim.SphereMarker(position=position, radius=0.001, rgba_color=[0, 0, 0, 0.8]))
-    
+            markers.append(sim.SphereMarker(position=position,
+                           radius=0.001, rgba_color=[0, 0, 0, 0.8]))
+
         # TODO: extract grasp position and angle
         position = None  # This should contain the grasp position
         grasp_angle = None  # This should contain the grasp angle
@@ -153,7 +160,7 @@ if __name__ == "__main__":
         # ====================================================================================
 
         # visualize grasp position using a big red sphere
-        markers.append(sim.SphereMarker(position, radius = 0.02))
+        markers.append(sim.SphereMarker(position, radius=0.02))
 
         # attempt grasping
         grasp_success = env.execute_grasp(position, grasp_angle)
@@ -164,9 +171,10 @@ if __name__ == "__main__":
 
             # Get a list of robot configurations in small step sizes
             path_conf = main.rrt(env.robot_home_joint_config,
-                            env.robot_goal_joint_config, main.MAX_ITERS, main.delta_q, 0.5, env)
+                                 env.robot_goal_joint_config, main.MAX_ITERS, main.delta_q, 0.5, env)
             if path_conf is None:
-                print("no collision-free path is found within the time budget. continuing ...")
+                print(
+                    "no collision-free path is found within the time budget. continuing ...")
             else:
                 env.set_joint_positions(env.robot_home_joint_config)
                 main.execute_path(path_conf, env)

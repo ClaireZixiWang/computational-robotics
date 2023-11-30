@@ -12,16 +12,17 @@ from common import load_chkpt, get_splits
 import affordance_model
 import action_regression_model
 
+
 def main():
     parser = argparse.ArgumentParser(description='Model eval script')
     parser.add_argument('-m', '--model', default="affordance",
-        help='which model to train: "affordance" or "action_regression"')
+                        help='which model to train: "affordance" or "action_regression"')
     parser.add_argument('-t', '--task', default='pick_training',
-        help='which task to do: "pick_training" or "empty_bin"')
+                        help='which task to do: "pick_training" or "empty_bin"')
     parser.add_argument('--headless', action='store_true',
-        help='launch pybullet GUI or not')
+                        help='launch pybullet GUI or not')
     parser.add_argument('--seed', type=int, default=10000000,
-        help='random seed for empty_bin task')
+                        help='random seed for empty_bin task')
     args = parser.parse_args()
 
     if args.model == 'action_regression':
@@ -32,7 +33,6 @@ def main():
     model_dir = os.path.join('data', args.model)
     chkpt_path = os.path.join(model_dir, 'best.ckpt')
 
-    
     # load model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model_class()
@@ -42,7 +42,7 @@ def main():
 
     # load env
     env = UR5PickEnviornment(gui=not args.headless)
-    
+
     if args.task == 'pick_training':
         names = get_splits()['train']
         n_attempts = 3
@@ -60,10 +60,11 @@ def main():
                     env.load_ycb_objects([name], seed=seed)
                 else:
                     env.reset_objects(seed)
-                
+
                 rgb_obs, depth_obs, _ = env.observe()
                 coord, angle, vis_img = model.predict_grasp(rgb_obs)
-                pick_pose = env.image_pose_to_pick_pose(coord, angle, depth_obs)
+                pick_pose = env.image_pose_to_pick_pose(
+                    coord, angle, depth_obs)
                 result = env.execute_grasp(*pick_pose)
                 print('Success!' if result else 'Failed:(')
                 fname = os.path.join(vis_dir, '{}_{}.png'.format(name, i))
@@ -93,7 +94,7 @@ def main():
             if result:
                 # place
                 env.execute_place()
-            
+
             num_in = env.num_object_in_tote1()
             print("{}/{} objects moved".format(n_objects - num_in, n_objects))
 

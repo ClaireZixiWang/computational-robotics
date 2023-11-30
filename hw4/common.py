@@ -12,7 +12,7 @@ def get_splits() -> Dict[str, List[str]]:
     """
     Read read training/testing split.
     """
-    csv_path = os.path.join(os.path.dirname(__file__),'assets','split.csv')
+    csv_path = os.path.join(os.path.dirname(__file__), 'assets', 'split.csv')
     df = pd.read_csv(csv_path, header=0)
     splits = {
         'train': list(df['Name'].loc[df['Split'] == 'Train']),
@@ -22,10 +22,10 @@ def get_splits() -> Dict[str, List[str]]:
 
 
 def draw_grasp(
-        img: np.ndarray, 
-        coord: Tuple[int,int], angle: float, 
-        width: int=6, thickness: int=1, 
-        radius: int=2, color=(255,255,255)) -> None:
+        img: np.ndarray,
+        coord: Tuple[int, int], angle: float,
+        width: int = 6, thickness: int = 1,
+        radius: int = 2, color=(255, 255, 255)) -> None:
     """
     Draw grasp pose visualization on :img:.
     :img: (H,W,3) RGB image to be MODIFIED
@@ -41,13 +41,14 @@ def draw_grasp(
     direction = np.array([np.cos(rad), np.sin(rad)], dtype=np.float32)
     left_coord = center_coord - direction * width
     right_coord = center_coord + direction * width
-    cv2.polylines(img, 
-        [np.array([left_coord, right_coord]).round().astype(np.int32)], 
-        isClosed=False, 
-        color=color, thickness=thickness, lineType=cv2.LINE_AA)
+    cv2.polylines(img,
+                  [np.array([left_coord, right_coord]
+                            ).round().astype(np.int32)],
+                  isClosed=False,
+                  color=color, thickness=thickness, lineType=cv2.LINE_AA)
     for point in np.array([left_coord, center_coord, right_coord]).round().astype(np.int32):
-        cv2.circle(img, center=point, radius=radius, color=color, 
-            thickness=cv2.FILLED, lineType=cv2.LINE_AA)
+        cv2.circle(img, center=point, radius=radius, color=color,
+                   thickness=cv2.FILLED, lineType=cv2.LINE_AA)
 
 
 def save_chkpt(model, epoch, test_loss, chkpt_path):

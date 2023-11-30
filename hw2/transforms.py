@@ -17,9 +17,11 @@ def transform_is_valid(t, tolerance=1e-3):
     rtr = np.matmul(t[:3, :3].T, t[:3, :3])
     rrt = np.matmul(t[:3, :3], t[:3, :3].T)
 
-    inverse_check = np.isclose(np.eye(3), rtr, atol=tolerance).all() and np.isclose(np.eye(3), rrt, atol=tolerance).all()
+    inverse_check = np.isclose(np.eye(3), rtr, atol=tolerance).all(
+    ) and np.isclose(np.eye(3), rrt, atol=tolerance).all()
     det_check = np.isclose(np.linalg.det(t[:3, :3]), 1.0, atol=tolerance).all()
-    last_row_check = np.isclose(t[3, :3], np.zeros((1, 3)), atol=tolerance).all() and np.isclose(t[3, 3], 1.0, atol=tolerance).all()
+    last_row_check = np.isclose(t[3, :3], np.zeros((1, 3)), atol=tolerance).all(
+    ) and np.isclose(t[3, 3], 1.0, atol=tolerance).all()
 
     return inverse_check and det_check and last_row_check
 

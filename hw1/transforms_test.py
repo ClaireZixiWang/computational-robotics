@@ -77,21 +77,23 @@ class TestTransforms(unittest.TestCase):
                       [0., -1., 0., 1.],
                       [0., 0., 0., 1.]])
 
-        self.assertTrue(np.isclose(transform_point3s(t, p), [[2., 4., -1.], [3., 0., -6.]]).all())
+        self.assertTrue(np.isclose(transform_point3s(t, p), [
+                        [2., 4., -1.], [3., 0., -6.]]).all())
 
     def test_transform_point3s_2(self):
         """Test transforms.transform_point3s.
         """
         # 2 point3s
-        p = np.array([[1,2,3], [2., 7., -1.]])
+        p = np.array([[1, 2, 3], [2., 7., -1.]])
 
         # example transform
         t = np.array([[1.000000000000000000e+00, -0.000000000000000000e+00, -0.000000000000000000e+00, 0.000000000000000000e+00],
-                        [-0.000000000000000000e+00, -5, 8, -1],
-                        [0.000000000000000000e+00, -8, -5, 7],
-                        [0.000000000000000000e+00, -0.000000000000000000e+00, -0.000000000000000000e+00, 1.000000000000000000e+00]])
+                      [-0.000000000000000000e+00, -5, 8, -1],
+                      [0.000000000000000000e+00, -8, -5, 7],
+                      [0.000000000000000000e+00, -0.000000000000000000e+00, -0.000000000000000000e+00, 1.000000000000000000e+00]])
 
-        self.assertTrue(np.isclose(transform_point3s(t, p), [[2, 13, -24], [3., -44, -44]]).all())
+        self.assertTrue(np.isclose(transform_point3s(t, p), [
+                        [2, 13, -24], [3., -44, -44]]).all())
 
     def test_transform_point3s(self):
         """Test transforms.transform_point3s.
@@ -105,7 +107,8 @@ class TestTransforms(unittest.TestCase):
                       [0., -1., 0., 1.],
                       [0., 0., 0., 1.]])
 
-        self.assertTrue(np.isclose(transform_point3s(t, p), [[2., 4., -1.], [3., 0., -6.]]).all())
+        self.assertTrue(np.isclose(transform_point3s(t, p), [
+                        [2., 4., -1.], [3., 0., -6.]]).all())
 
     def test_transform_inverse(self):
         """Test transforms.transform_inverse.
@@ -133,7 +136,8 @@ class TestTransforms(unittest.TestCase):
 
         ans = np.array([[22, 110], [22, 109], [21, 107]])
 
-        self.assertTrue(np.array_equal(camera_to_image(camera_intrinsics, camera_points), ans))
+        self.assertTrue(np.array_equal(camera_to_image(
+            camera_intrinsics, camera_points), ans))
 
     def test_depth_to_point_cloud(self):
         """Test transforms.depth_to_point_cloud.
@@ -173,7 +177,8 @@ class TestTransforms(unittest.TestCase):
         evaluation = depth_to_point_cloud(camera_intrensics, depth_image)
 
         for a in ans:
-            valid_cloud = valid_cloud or np.isclose(evaluation, a, atol=1e-3).all()
+            valid_cloud = valid_cloud or np.isclose(
+                evaluation, a, atol=1e-3).all()
 
         self.assertTrue(valid_cloud)
 

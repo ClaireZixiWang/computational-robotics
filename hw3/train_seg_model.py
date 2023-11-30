@@ -15,6 +15,7 @@ mean_rgb = [0.485, 0.456, 0.406]
 std_rgb = [0.229, 0.224, 0.225]
 # ==================================================
 
+
 class RGBDataset(Dataset):
     def __init__(self, img_dir):
         """
@@ -23,7 +24,7 @@ class RGBDataset(Dataset):
             :return None:
         """
         # TODO: complete this method
-        ## Borrowed from hw2
+        # Borrowed from hw2
         # ===============================================================================
         # pass
         # Input normalization info to be used in transforms.Normalize()
@@ -37,15 +38,16 @@ class RGBDataset(Dataset):
         # Transform to be applied on a sample.
         #  For this homework, compose transforms.ToTensor() and transforms.Normalize() for RGB image should be enough.
         self.transform = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize(mean_rgb, std_rgb)]) # QUESTION: Inplace=?
+                                             transforms.Normalize(mean_rgb, std_rgb)])  # QUESTION: Inplace=?
 
         # go into the rgb/ subfolder, since all test, train, val has rgb/ subfolder
         rgb_subfolder = os.path.join(self.dataset_dir, 'rgb/')
-        
-        # borrowd from stackoverflow: 
+
+        # borrowd from stackoverflow:
         # https://stackoverflow.com/questions/2632205/how-to-count-the-number-of-files-in-a-directory-using-python
         # count # of files in a folder, excluding folders such as './' and '../'
-        self.dataset_length = len([name for name in os.listdir(rgb_subfolder) if os.path.isfile(os.path.join(rgb_subfolder, name))])
+        self.dataset_length = len([name for name in os.listdir(
+            rgb_subfolder) if os.path.isfile(os.path.join(rgb_subfolder, name))])
         print("DEBUGGING: The length of the dataset is: ", self.dataset_length)
         # ===============================================================================
 
@@ -55,7 +57,7 @@ class RGBDataset(Dataset):
             :return dataset_length (int): length of the dataset, i.e. number of samples in the dataset
         """
         # TODO: complete this method
-        ## Borrowed from hw2
+        # Borrowed from hw2
         # ===============================================================================
         return self.dataset_length
         # pass
@@ -68,7 +70,7 @@ class RGBDataset(Dataset):
             :return sample: a dictionary that stores paired rgb image and corresponding ground truth mask.
         """
         # TODO: complete this method
-        ## Borrowed from hw2
+        # Borrowed from hw2
         # Hint:
         # - Use image.read_rgb() and image.read_mask() to read the images.
         # - Think about how to associate idx with the file name of images.
@@ -86,14 +88,15 @@ class RGBDataset(Dataset):
         # print("CHECKING: rgb_file_path: %s; gt_file_path: %s" % (rgb_file_path, gt_file_path))
 
         rgb_img = self.transform(image.read_rgb(rgb_file_path))
-                                                # QUESTION: should I use torch.io.read_image()?  ==> NO
-                                                # QUESTION: why is the generated picture so dim?  ==> Didn't transform!!
-                                                # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES 
+        # QUESTION: should I use torch.io.read_image()?  ==> NO
+        # QUESTION: why is the generated picture so dim?  ==> Didn't transform!!
+        # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES
         # print("CHECKING: type of rgb_img is:", type(rgb_img))
 
-        gt_mask = torch.LongTensor(image.read_mask(gt_file_path)) # QUESTION: should i use this? ==> YES
+        # QUESTION: should i use this? ==> YES
+        gt_mask = torch.LongTensor(image.read_mask(gt_file_path))
         sample = {'input': rgb_img, 'target': gt_mask}
-        
+
         # print("DEBUGGING: the dim of input image is", rgb_img.size())
         # print("DEBUGGING: the dim of output mask is", gt_mask.size())
 
@@ -114,49 +117,60 @@ class miniUNet(nn.Module):
         # ===============================================================================
         # Some inspiration from https://github.com/milesial/Pytorch-UNet
         self.down = nn.Sequential(
-            nn.Conv2d(in_channels=n_channels, out_channels=16, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=n_channels, out_channels=16,
+                      kernel_size=3, padding=1),
             nn.ReLU()
         )
         self.down2 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down3 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down4 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down_last = nn.MaxPool2d(kernel_size=2)
         self.up = nn.Sequential(
-            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1), # QUESTION: or should we be using convtranspose2d? --> NO
+            # QUESTION: or should we be using convtranspose2d? --> NO
+            nn.Conv2d(in_channels=128, out_channels=256,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             # QUESTION: what's the interpolate function? Upsampling?? --> Yes
             nn.Upsample(scale_factor=2)
             # QUESTION: should I concat in the forward function? --> Yes
         )
         self.up2 = nn.Sequential(
-            nn.Conv2d(in_channels=128+256, out_channels=128, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=128+256, out_channels=128,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up3 = nn.Sequential(
-            nn.Conv2d(in_channels=64+128, out_channels=64, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=64+128, out_channels=64,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up4 = nn.Sequential(
-            nn.Conv2d(in_channels=32+64, out_channels=32, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=32+64, out_channels=32,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up5 = nn.Sequential(
-            nn.Conv2d(in_channels=16+32, out_channels=16, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=16+32, out_channels=16,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=16, out_channels=n_classes, kernel_size=1)
         )
@@ -176,7 +190,8 @@ class miniUNet(nn.Module):
         # print("The size of down3 is: ", down3.size())
         # print("The size of down4 is: ", down4.size())
         # print("The size of down_last is: ", down_last.size())
-        up2 = self.up2(torch.cat([down4, up1], axis=1)) # QUESTION: what should be the axis?
+        # QUESTION: what should be the axis?
+        up2 = self.up2(torch.cat([down4, up1], axis=1))
         up3 = self.up3(torch.cat([down3, up2], axis=1))
         up4 = self.up4(torch.cat([down2, up3], axis=1))
         output = self.up5(torch.cat([down1, up4], axis=1))
@@ -240,15 +255,20 @@ def save_prediction(model, dataloader, dump_dir, device, BATCH_SIZE):
     model.eval()
     with torch.no_grad():
         for batch_ID, sample_batched in enumerate(dataloader):
-            data, target = sample_batched['input'].to(device), sample_batched['target'].to(device)
+            data, target = sample_batched['input'].to(
+                device), sample_batched['target'].to(device)
             output = model(data)
             _, pred = torch.max(output, dim=1)
             for i in range(pred.shape[0]):
-                gt_image = convert_seg_split_into_color_image(target[i].cpu().numpy())
-                pred_image = convert_seg_split_into_color_image(pred[i].cpu().numpy())
+                gt_image = convert_seg_split_into_color_image(
+                    target[i].cpu().numpy())
+                pred_image = convert_seg_split_into_color_image(
+                    pred[i].cpu().numpy())
                 combined_image = np.concatenate((gt_image, pred_image), axis=1)
                 test_ID = batch_ID * BATCH_SIZE + i
-                image.write_mask(combined_image, f"{dump_dir}/{test_ID}_gt_pred.png")
+                image.write_mask(
+                    combined_image, f"{dump_dir}/{test_ID}_gt_pred.png")
+
 
 def save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_miou_list):
     """
@@ -261,7 +281,8 @@ def save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_m
     """
     epochs = np.arange(1, len(train_loss_list)+1)
     plt.figure()
-    lr_curve_plot = plt.plot(epochs, train_loss_list, color='navy', label="train_loss")
+    lr_curve_plot = plt.plot(epochs, train_loss_list,
+                             color='navy', label="train_loss")
     plt.plot(epochs, train_miou_list, color='teal', label="train_mIoU")
     plt.plot(epochs, test_loss_list, color='orange', label="test_loss")
     plt.plot(epochs, test_miou_list, color='gold', label="val_mIoU")
@@ -273,6 +294,7 @@ def save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_m
     plt.grid(True)
     plt.savefig('learning_curve.png', bbox_inches='tight')
     plt.show()
+
 
 def iou(pred, target, n_classes=4):
     """
@@ -322,7 +344,7 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
         :return mean_iou (float): mean iou across this epoch
     """
     model.train(is_train)
-    # TODO: complete this function 
+    # TODO: complete this function
     # ===============================================================================
     mean_epoch_loss = 0
     mean_iou = 0
@@ -332,9 +354,9 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
         # print("DEBUGGING: printing the ground_truth", ground_truth)
         # print("DEBUGGING: rgb size are:", inputs.size(), "and the gt size are:", ground_truth.size())
         inputs = inputs.to(device)
-        
+
         # print(type(inputs))
-        
+
         # outputs = model(inputs)
         # print('output shape:', outputs.shape)
 
@@ -342,46 +364,47 @@ def run(model, device, loader, criterion, is_train=False, optimizer=None):
 #         for c in range(inputs.shape[1]):
 #             class_mask = torch.full(ground_truth.shape, c)
 #             labels[c] = (class_mask == ground_truth).long()
-        
+
 #         print(labels)
         ground_truth = ground_truth.to(device)
         # labels = labels.to(device)
-        
+
         if is_train:
-            optimizer.zero_grad() # QUESTION: What does this do??
-        
+            optimizer.zero_grad()  # QUESTION: What does this do??
+
         # forward + backword step
         outputs = model(inputs)
         # print("DEBUGGING: the dimension of the model output is", outputs.size())
-        loss = criterion(outputs, ground_truth)  # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        loss = criterion(outputs, ground_truth)
         _, pred = torch.max(outputs, dim=1)
         # print("DEBUGGING: the dimension of the predicted mask is", pred.size())
-        
-        
+
         if is_train:
             loss.backward()
             optimizer.step()
-        
+
         # reporting statistics
         mean_epoch_loss += loss.item()
-        
+
         # print("DEBUGGING: I'm training \[",is_train,"\], and the batch size is", len(inputs))
-        
+
         # in every batch, calculate the iou for each datapoint, then sum them up and calculate the batch miou
         batch_iou = 0
         for i in range(len(inputs)):
             miou_data_point = np.array(iou(pred[i], ground_truth[i])).mean()
             batch_iou += miou_data_point
         mean_iou += batch_iou / len(inputs)
-        
+
     mean_epoch_loss /= len(loader)
     mean_iou /= len(loader)
-    
-    if is_train:
-        print('The training loss for the epoch is %f and the training iou is %f' % (mean_epoch_loss, mean_iou))
-    else:
-        print('The validation loss for the epoch is %f and the training iou is %f' % (mean_epoch_loss, mean_iou))
 
+    if is_train:
+        print('The training loss for the epoch is %f and the training iou is %f' % (
+            mean_epoch_loss, mean_iou))
+    else:
+        print('The validation loss for the epoch is %f and the training iou is %f' % (
+            mean_epoch_loss, mean_iou))
 
     return mean_epoch_loss, mean_iou
     # ===============================================================================
@@ -413,7 +436,6 @@ if __name__ == "__main__":
     seed(0)
     torch.manual_seed(0)
 
-
     # Check if GPU is being detected
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device:", device)
@@ -431,8 +453,9 @@ if __name__ == "__main__":
     dataset = RGBDataset(root_dir)
     train_size = int(0.9 * len(dataset))
     test_size = int(0.1 * len(dataset))
-    
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+    train_dataset, test_dataset = torch.utils.data.random_split(
+        dataset, [train_size, test_size])
     # ===============================================================================
 
     # TODO: Prepare train and test Dataloaders. Use appropriate batch size
@@ -444,27 +467,30 @@ if __name__ == "__main__":
     # TODO: Prepare model
     # ===============================================================================
     model = miniUNet(n_channels=3, n_classes=4)
-    model.to(device) # QUESTION: should I do this here or in the training loop?
+    model.to(device)  # QUESTION: should I do this here or in the training loop?
     # ===============================================================================
 
     # TODO: Define criterion, optimizer and learning rate scheduler
     # ===============================================================================
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8) # QUESTION: what hyperparam for Adam?
+    # QUESTION: what hyperparam for Adam?
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8)
     # ===============================================================================
 
-    # TODO: Train and test the model. 
+    # TODO: Train and test the model.
     # Tips:
     # - Remember to save your model with best mIoU on objects using save_chkpt function
     # - Try to achieve Test mIoU >= 0.9 (Note: the value of 0.9 only makes sense if you have sufficiently large test set)
     # - Visualize the performance of a trained model using save_prediction method. Make sure that the predicted segmentation mask is almost correct.
     # ===============================================================================
-    train_loss_list, train_miou_list, test_loss_list, test_miou_list = list(), list(), list(), list()
+    train_loss_list, train_miou_list, test_loss_list, test_miou_list = list(
+    ), list(), list(), list()
     epoch, max_epochs = 0, 5  # TODO: you may want to make changes here
     best_miou = float('-inf')
     while epoch <= max_epochs:
         print('Epoch (', epoch, '/', max_epochs, ')')
-        train_loss, train_miou = run(model, device, train_loader, criterion, True, optimizer)
+        train_loss, train_miou = run(
+            model, device, train_loader, criterion, True, optimizer)
         test_loss, test_miou = run(model, device, test_loader, criterion)
         train_loss_list.append(train_loss)
         train_miou_list.append(train_miou)
@@ -479,8 +505,10 @@ if __name__ == "__main__":
         epoch += 1
 
     # Load the best checkpoint, use save_prediction() on the validation set and test set
-    model, epoch, best_miou = load_chkpt(model, 'checkpoint_multi.pth.tar', device)
+    model, epoch, best_miou = load_chkpt(
+        model, 'checkpoint_multi.pth.tar', device)
     save_prediction(model, test_loader, test_dir, device, 4)
-    save_learning_curve(train_loss_list, train_miou_list, test_loss_list, test_miou_list)
+    save_learning_curve(train_loss_list, train_miou_list,
+                        test_loss_list, test_miou_list)
 
     # ===============================================================================

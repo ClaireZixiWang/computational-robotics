@@ -6,16 +6,18 @@ import numpy as np
 from icp import obj_mesh2pts
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gtmask', action='store_true', help='evaluate predicted pose using ground truth mask')
-parser.add_argument('--predmask', action='store_true', help='evaluate predicted pose using predicted mask')
+parser.add_argument('--gtmask', action='store_true',
+                    help='evaluate predicted pose using ground truth mask')
+parser.add_argument('--predmask', action='store_true',
+                    help='evaluate predicted pose using predicted mask')
 
 LIST_OBJ_FOLDERNAME = [
-        "004_sugar_box",
-        "005_tomato_soup_can",
-        "007_tuna_fish_can",
-        "011_banana",
-        "024_bowl",
-    ]
+    "004_sugar_box",
+    "005_tomato_soup_can",
+    "007_tuna_fish_can",
+    "011_banana",
+    "024_bowl",
+]
 
 
 def closest_point_distance(pred_pt, gt_pts):
@@ -38,7 +40,8 @@ def evaluate(obj_id, pred_pose, gt_pose):
     """
     pred_pts = obj_mesh2pts(obj_id, point_num=1000, transform=pred_pose)
     gt_pts = obj_mesh2pts(obj_id, point_num=1000, transform=gt_pose)
-    average_closest_point_distance = np.apply_along_axis(closest_point_distance, 1, pred_pts, gt_pts).mean()
+    average_closest_point_distance = np.apply_along_axis(
+        closest_point_distance, 1, pred_pts, gt_pts).mean()
     return average_closest_point_distance
 
 
@@ -70,13 +73,17 @@ def main():
                     continue
                 pred_pose = np.load(pred_pose_name)
                 gt_pose = np.load(gt_pose_dir + pose_filename)
-                average_closest_point[obj_id - 1].append(evaluate(obj_id, pred_pose, gt_pose))
+                average_closest_point[obj_id -
+                                      1].append(evaluate(obj_id, pred_pose, gt_pose))
 
         for obj_id in range(1, 6):
             obj_average_closest_point = average_closest_point[obj_id - 1]
-            print("Average closest point distance of", LIST_OBJ_FOLDERNAME[obj_id - 1][4:])
-            print("average:", sum(obj_average_closest_point) / len(obj_average_closest_point))
-            print("min:", min(obj_average_closest_point), "max:", max(obj_average_closest_point))
+            print("Average closest point distance of",
+                  LIST_OBJ_FOLDERNAME[obj_id - 1][4:])
+            print("average:", sum(obj_average_closest_point) /
+                  len(obj_average_closest_point))
+            print("min:", min(obj_average_closest_point),
+                  "max:", max(obj_average_closest_point))
 
 
 if __name__ == '__main__':

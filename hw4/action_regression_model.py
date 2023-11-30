@@ -15,13 +15,14 @@ class ActionRegressionDataset(Dataset):
     Transformational dataset.
     raw_dataset is of type train.RGBDataset
     """
+
     def __init__(self, raw_dataset: Dataset):
         super().__init__()
         self.raw_dataset = raw_dataset
-    
+
     def __len__(self) -> int:
         return len(self.raw_dataset)
-    
+
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """
         Transform the raw RGB dataset element into
@@ -43,20 +44,19 @@ class ActionRegressionDataset(Dataset):
         regression_data['input'] = (data['rgb'].permute(2, 0, 1)/255).float()
 
         # save the center and the angle as a vector of size 3
-        regression_data['target'] = torch.hstack((data['center_point']/128, (data['angle']%180)/180))
+        regression_data['target'] = torch.hstack(
+            (data['center_point']/128, (data['angle'] % 180)/180))
         # print("DEBUGGING: the regression data target is a tensor of shape", regression_data['target'].shape)
         # print("DEBUGGING: the regression data target looks like", regression_data['target'])
-
-
 
         return regression_data
         # ===============================================================================
 
 
 def recover_action(
-        action: np.ndarray, 
-        shape=(128,128)
-        ) -> Tuple[Tuple[int, int], float]:
+        action: np.ndarray,
+        shape=(128, 128)
+) -> Tuple[Tuple[int, int], float]:
     """
     :action: np.ndarray([x,y,angle], dtype=np.float32)
     return:
@@ -84,7 +84,7 @@ class ActionRegressionModel(nn.Module):
         self.model = model
         # normalize RGB input to zero mean and unit variance
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+                                              std=[0.229, 0.224, 0.225])
         # hack to get model device
         self.dummy_param = nn.Parameter(torch.empty(0))
 
@@ -113,24 +113,24 @@ class ActionRegressionModel(nn.Module):
         # ===============================================================================
 
     @staticmethod
-    def visualize(input: np.ndarray, output: np.ndarray, 
-            target: Optional[np.ndarray]=None) -> np.ndarray:
+    def visualize(input: np.ndarray, output: np.ndarray,
+                  target: Optional[np.ndarray] = None) -> np.ndarray:
         """
         Visualize rgb input and affordance as a single rgb image.
-        """        
-        vis_img = (np.moveaxis(input,0,-1).copy() * 255).astype(np.uint8)
+        """
+        vis_img = (np.moveaxis(input, 0, -1).copy() * 255).astype(np.uint8)
         print("DEBUGGING: vis_img shape first is:", vis_img.shape)
         # target
         if target is not None:
             coord, angle = recover_action(target, shape=vis_img.shape[:2])
-            draw_grasp(vis_img, coord, angle, color=(255,255,255))
+            draw_grasp(vis_img, coord, angle, color=(255, 255, 255))
         # pred
         coord, angle = recover_action(output, shape=vis_img.shape[:2])
-        draw_grasp(vis_img, coord, angle, color=(0,255,0))
+        draw_grasp(vis_img, coord, angle, color=(0, 255, 0))
         return vis_img
 
     def predict_grasp(self, rgb_obs: np.ndarray
-            ) -> Tuple[Tuple[int, int], float, np.ndarray]:
+                      ) -> Tuple[Tuple[int, int], float, np.ndarray]:
         """
         Given a RGB image observation, predict the grasping location and angle in image space.
         return coord, angle, vis_img
@@ -145,7 +145,8 @@ class ActionRegressionModel(nn.Module):
         # Hint: why do we provide the model's device here?
         # ===============================================================================
         # transform the rgb to the right input format
-        rgb_tensor = torch.from_numpy(rgb_obs).permute(2, 0, 1).float().unsqueeze(0)/255
+        rgb_tensor = torch.from_numpy(rgb_obs).permute(
+            2, 0, 1).float().unsqueeze(0)/255
         rgb_tensor = rgb_tensor.to(device)
 
         # go through the model to get the result

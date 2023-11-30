@@ -1,6 +1,7 @@
 from numba import njit, prange
 import numpy as np
 
+
 def transform_is_valid(t, tolerance=1e-3):
     '''
     In:
@@ -11,17 +12,20 @@ def transform_is_valid(t, tolerance=1e-3):
     Purpose:
         Check if array is a valid transform.
     '''
-    if t.shape != (4,4):
+    if t.shape != (4, 4):
         return False
 
     rtr = np.matmul(t[:3, :3].T, t[:3, :3])
     rrt = np.matmul(t[:3, :3], t[:3, :3].T)
 
-    inverse_check = np.isclose(np.eye(3), rtr, atol=tolerance).all() and np.isclose(np.eye(3), rrt, atol=tolerance).all()
+    inverse_check = np.isclose(np.eye(3), rtr, atol=tolerance).all(
+    ) and np.isclose(np.eye(3), rrt, atol=tolerance).all()
     det_check = np.isclose(np.linalg.det(t[:3, :3]), 1.0, atol=tolerance).all()
-    last_row_check = np.isclose(t[3, :3], np.zeros((1, 3)), atol=tolerance).all() and np.isclose(t[3, 3], 1.0, atol=tolerance).all()
+    last_row_check = np.isclose(t[3, :3], np.zeros((1, 3)), atol=tolerance).all(
+    ) and np.isclose(t[3, 3], 1.0, atol=tolerance).all()
 
     return inverse_check and det_check and last_row_check
+
 
 def transform_concat(t1, t2):
     '''
@@ -39,6 +43,7 @@ def transform_concat(t1, t2):
         raise ValueError('Invalid input transform t2')
 
     return np.matmul(t1, t2)
+
 
 def transform_point3s(t, ps):
     '''
@@ -62,6 +67,7 @@ def transform_point3s(t, ps):
 
     return ps_transformed[:, :3]
 
+
 def transform_inverse(t):
     '''
     In:
@@ -75,6 +81,7 @@ def transform_inverse(t):
         raise ValueError('Invalid input transform t')
 
     return np.linalg.inv(t)
+
 
 @njit(parallel=True)
 def camera_to_image(intrinsics, camera_points):
@@ -99,10 +106,13 @@ def camera_to_image(intrinsics, camera_points):
 
     image_coordinates = np.empty((camera_points.shape[0], 2), dtype=np.int64)
     for i in prange(camera_points.shape[0]):
-        image_coordinates[i, 0] = int(np.round((camera_points[i, 0] * fx / camera_points[i, 2]) + u0))
-        image_coordinates[i, 1] = int(np.round((camera_points[i, 1] * fy / camera_points[i, 2]) + v0))
+        image_coordinates[i, 0] = int(
+            np.round((camera_points[i, 0] * fx / camera_points[i, 2]) + u0))
+        image_coordinates[i, 1] = int(
+            np.round((camera_points[i, 1] * fy / camera_points[i, 2]) + v0))
 
     return image_coordinates
+
 
 def depth_to_point_cloud(intrinsics, depth_image):
     '''

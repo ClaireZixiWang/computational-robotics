@@ -34,21 +34,21 @@ class RGBDataset(Dataset):
         # TODO: transform to be applied on a sample.
         #  For this homework, compose transforms.ToTensor() and transforms.Normalize() for RGB image should be enough.
         self.transform = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize(mean_rgb, std_rgb)]) # QUESTION: Inplace=?
+                                             transforms.Normalize(mean_rgb, std_rgb)])  # QUESTION: Inplace=?
         # TODO: number of samples in the dataset.
         #  You'd better not hard code the number,
-        #  because this class is used to create train, validation and test dataset 
+        #  because this class is used to create train, validation and test dataset
         #  (which have different sizes).
 
         # go into the rgb/ subfolder, since all test, train, val has rgb/ subfolder
         rgb_subfolder = os.path.join(self.dataset_dir, 'rgb/')
-        
-        # borrowd from stackoverflow: 
+
+        # borrowd from stackoverflow:
         # https://stackoverflow.com/questions/2632205/how-to-count-the-number-of-files-in-a-directory-using-python
         # count # of files in a folder, excluding folders such as './' and '../'
-        self.dataset_length = len([name for name in os.listdir(rgb_subfolder) if os.path.isfile(os.path.join(rgb_subfolder, name))])
+        self.dataset_length = len([name for name in os.listdir(
+            rgb_subfolder) if os.path.isfile(os.path.join(rgb_subfolder, name))])
         print("CHECKING: The length of the dataset is: ", self.dataset_length)
-
 
     def __len__(self):
         return self.dataset_length
@@ -83,15 +83,16 @@ class RGBDataset(Dataset):
         # print("CHECKING: rgb_file_path: %s; gt_file_path: %s" % (rgb_file_path, gt_file_path))
 
         rgb_img = self.transform(image.read_rgb(rgb_file_path))
-                                                # QUESTION: should I use torch.io.read_image()?  ==> NO
-                                                # QUESTION: why is the generated picture so dim?  ==> Didn't transform!!
-                                                # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES 
+        # QUESTION: should I use torch.io.read_image()?  ==> NO
+        # QUESTION: why is the generated picture so dim?  ==> Didn't transform!!
+        # QUESTION: if I use image.read_rgb, do I need to transform it to tensor? ==> YES
         # print("CHECKING: type of rgb_img is:", type(rgb_img))
 
         if self.has_gt is False:
             sample = {'input': rgb_img}
         else:
-            gt_mask = torch.LongTensor(image.read_mask(gt_file_path)) # QUESTION: should i use this? ==> YES
+            # QUESTION: should i use this? ==> YES
+            gt_mask = torch.LongTensor(image.read_mask(gt_file_path))
             sample = {'input': rgb_img, 'target': gt_mask}
 
         return sample

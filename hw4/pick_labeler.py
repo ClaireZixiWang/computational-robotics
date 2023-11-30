@@ -13,6 +13,7 @@ from env import UR5PickEnviornment
 
 class GraspLabeler:
     """Function object for GUI labeling"""
+
     def __init__(self):
         """
         :coord: tuple(int x, int y). By OpenCV convension, x is left-to-right and y is top-to-bottom.
@@ -21,7 +22,7 @@ class GraspLabeler:
         self.coord = None
         self.angle = 0
         self.angle_delta = 180 / 8
-    
+
     def callback(self, action, x, y, flags, *userdata):
         """
         https://docs.opencv.org/4.5.5/d7/dfc/group__highgui.html#gab7aed186e151d5222ef97192912127a4
@@ -29,13 +30,13 @@ class GraspLabeler:
         # TODO: complete this method
         # set gripping point self.coord to the left mouse button clicked point
         # ===============================================================================
-        # QUESTION: was there anything else I need to do? what about the opencv convension 
+        # QUESTION: was there anything else I need to do? what about the opencv convension
         self.coord = (x, y)
         pass
         # ===============================================================================
-    
+
     def __call__(self, img: np.ndarray
-            ) -> Tuple[Tuple[int, int], float]:
+                 ) -> Tuple[Tuple[int, int], float]:
         """
         Main loop for GUI.
         :img: RGB observation
@@ -51,7 +52,7 @@ class GraspLabeler:
             if self.coord is not None:
                 draw_grasp(vis_img, self.coord, self.angle)
 
-            cv2.imshow("img", vis_img[:,:,[2,1,0]])
+            cv2.imshow("img", vis_img[:, :, [2, 1, 0]])
             key = cv2.waitKey(17)
             if key == ord('q'):
                 # print('exit')
@@ -85,7 +86,7 @@ def main():
     # Improvements:
     n_picks = 24
 
-    out_dir = pathlib.Path('data','labels')
+    out_dir = pathlib.Path('data', 'labels')
     out_dir.mkdir(parents=True, exist_ok=True)
     label_file = out_dir.joinpath('labels.json')
     labels = defaultdict(list)
@@ -109,15 +110,17 @@ def main():
                 if coord is None:
                     print("Invalid label, please retry!")
                     continue
-                pick_pose = env.image_pose_to_pick_pose(coord, angle, depth_obs)
+                pick_pose = env.image_pose_to_pick_pose(
+                    coord, angle, depth_obs)
                 result = env.execute_grasp(*pick_pose)
                 if result:
                     break
                 else:
                     print("Failed to grasp, please retry!")
             # save
-            write_rgb(rgb_obs, str(out_dir.joinpath('{}_{}_rgb.png'.format(name, i))))
-            labels[name].append([coord[0],coord[1],angle])
+            write_rgb(rgb_obs, str(out_dir.joinpath(
+                '{}_{}_rgb.png'.format(name, i))))
+            labels[name].append([coord[0], coord[1], angle])
             json.dump(labels, label_file.open('w'), indent=4)
         env.remove_objects()
 

@@ -22,9 +22,11 @@ import affordance_model
 import action_regression_model
 from common import save_chkpt, load_chkpt
 
+
 @lru_cache(maxsize=128)
 def read_rgb_cached(file_path):
     return read_rgb(file_path)
+
 
 class RGBDataset(Dataset):
     def __init__(self, labels_dir: str):
@@ -40,10 +42,10 @@ class RGBDataset(Dataset):
                 ))
         self.labels_dir = labels_dir
         self.label_pairs = label_pairs
-    
+
     def __len__(self) -> int:
         return len(self.label_pairs)
-    
+
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """
         Read dataset labels.
@@ -69,9 +71,9 @@ class RGBDataset(Dataset):
 
 
 def get_finger_points(
-        center_point: np.ndarray, 
-        angle: float, width: int=10
-        ) -> Tuple[np.ndarray, np.ndarray]:
+        center_point: np.ndarray,
+        angle: float, width: int = 10
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Given the pick position and angle in pixel space,
     return the position of left and right fingers of the gripper
@@ -86,9 +88,9 @@ def get_finger_points(
 
 
 def get_center_angle(
-        left_coord: np.ndarray, 
+        left_coord: np.ndarray,
         right_coord: np.ndarray
-        ) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert the pixel coordinate of left and right fingers to 
     gripper center and angle.
@@ -103,7 +105,8 @@ def get_center_angle(
     # TODO: QUESTION: left-right right - left??
     # ===============================================================================
     center_coord = (left_coord + right_coord) / 2
-    angle = np.arctan2([(right_coord-left_coord)[1]], [(right_coord-left_coord)[0]]) * 180 / np.pi
+    angle = np.arctan2([(right_coord-left_coord)[1]],
+                       [(right_coord-left_coord)[0]]) * 180 / np.pi
     # print("DEBUGGING: center_coord =", center_coord, "angle =", angle)
     # ===============================================================================
     return center_coord, angle
@@ -119,54 +122,55 @@ class AugmentedDataset(Dataset):
                 0.7,
                 iaa.Affine(
                     translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-                    rotate=(-angle_delta/2,angle_delta/2),
+                    rotate=(-angle_delta/2, angle_delta/2),
                 )
             ),
-            
+
             # Improvements 3: Domain randomization
-            
+
             # add gaussian noise.
             # For 50% of all images, we sample the noise once per pixel.
             # For the other 50% of all images, we sample the noise per pixel AND
             # channel. This can change the color (not only brightness) of the
             # pixels.
-            iaa.Multiply((0.8, 1.2), per_channel=0.2), 
-            
+            iaa.Multiply((0.8, 1.2), per_channel=0.2),
+
             # Make some images brighter and some darker.
             # In 20% of all cases, we sample the multiplier once per channel,
             # which can end up changing the color of the images.
-            iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
+            iaa.AdditiveGaussianNoise(loc=0, scale=(
+                0.0, 0.05*255), per_channel=0.5),
 
-            
+
         ])
-            
-    
+
     def __len__(self) -> int:
         return len(self.rgb_dataset)
-    
+
     def __getitem__(self, idx: int
-            ) -> Dict[str, torch.Tensor]:
+                    ) -> Dict[str, torch.Tensor]:
         """
         The output format should be exactly the same as RGBDataset.__getitem__
         """
         data_torch = self.rgb_dataset[idx]
-        # TODO: complete this method 
-        # Hint: https://imgaug.readthedocs.io/en/latest/source/examples_keypoints.html 
+        # TODO: complete this method
+        # Hint: https://imgaug.readthedocs.io/en/latest/source/examples_keypoints.html
         # Hint: use get_finger_points and get_center_angle
         # QUESTION: where do we do the ratation 8 times??? Is it not here?
         # ===============================================================================
         rgb = data_torch['rgb'].numpy()
-        left, right = get_finger_points(data_torch['center_point'].numpy(), data_torch['angle'].numpy())
+        left, right = get_finger_points(
+            data_torch['center_point'].numpy(), data_torch['angle'].numpy())
 
         # QUESTION: which is x and which is y again?
         kps = KeypointsOnImage([
             Keypoint(x=left[0], y=left[1]),
             Keypoint(x=right[0], y=right[1]),
-        ], shape = rgb.shape)
-        
+        ], shape=rgb.shape)
+
         rgb_aug, kps_aug = self.aug_pipeline(image=rgb, keypoints=kps)
-        left_aug = np.array(kps_aug.to_xy_array()[0]) 
-        right_aug = np.array(kps_aug.to_xy_array()[1]) 
+        left_aug = np.array(kps_aug.to_xy_array()[0])
+        right_aug = np.array(kps_aug.to_xy_array()[1])
 
         # print("DEBUGGING: kps_aug", kps_aug.to_xy_array())
         # print("DEBUGGING: left aug is:", left_aug, "right aug is", right_aug)
@@ -199,7 +203,8 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
     model.train()
     epoch_loss = []
     for cur_step, sample_batched in enumerate(train_loader):
-        data, target = sample_batched['input'].to(device), sample_batched['target'].to(device)
+        data, target = sample_batched['input'].to(
+            device), sample_batched['target'].to(device)
         optimizer.zero_grad()
 
         # Forward pass
@@ -218,7 +223,8 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         # Output stats every [steps] iteration
         if cur_step % 50 == 0:
             global_step = (epoch - 1) * len(train_loader) + cur_step
-            print('step#', global_step, 'training loss', np.asarray(epoch_loss).mean())
+            print('step#', global_step, 'training loss',
+                  np.asarray(epoch_loss).mean())
 
     return np.asarray(epoch_loss).mean()
 
@@ -236,7 +242,8 @@ def test(model, test_loader, criterion, device, save_dir=None):
     with torch.no_grad():
         epoch_loss = []
         for i, sample_batched in enumerate(test_loader):
-            data, target = sample_batched['input'].to(device), sample_batched['target'].to(device)
+            data, target = sample_batched['input'].to(
+                device), sample_batched['target'].to(device)
 
             # Forward pass
             output = model(data)
@@ -249,11 +256,11 @@ def test(model, test_loader, criterion, device, save_dir=None):
 
 
 def save_prediction(
-        model: torch.nn.Module, 
-        dataloader: DataLoader, 
-        dump_dir: str, 
-        BATCH_SIZE:int
-    ) -> None:
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    dump_dir: str,
+    BATCH_SIZE: int
+) -> None:
     print(f"Saving predictions in directory {dump_dir}")
     if not os.path.exists(dump_dir):
         os.makedirs(dump_dir)
@@ -280,11 +287,11 @@ def save_prediction(
 def main():
     parser = argparse.ArgumentParser(description='Model training script')
     parser.add_argument('-m', '--model', default='affordance',
-        help='which model to train: "affordance" or "action_regression"')
+                        help='which model to train: "affordance" or "action_regression"')
     parser.add_argument('-a', '--augmentation', action='store_true',
-        help='flag to enable data augmentation')
+                        help='flag to enable data augmentation')
     parser.add_argument('-i', '--improve', default=False, action='store_true',
-        help='whether you are at improving stage')
+                        help='whether you are at improving stage')
     args = parser.parse_args()
 
     if args.model == 'affordance':
@@ -323,11 +330,14 @@ def main():
         train_raw_dataset = AugmentedDataset(train_raw_dataset)
     train_dataset = dataset_class(train_raw_dataset)
     test_dataset = dataset_class(test_raw_dataset)
-    print(f"Train dataset: {len(train_dataset)}; Test dataset: {len(test_dataset)}")
+    print(
+        f"Train dataset: {len(train_dataset)}; Test dataset: {len(test_dataset)}")
 
     BATCH_SIZE = 8
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(
+        train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
+                             shuffle=False, num_workers=4, pin_memory=True)
 
     print("Loading model")
     model = model_class(pretrained=True)
@@ -335,13 +345,15 @@ def main():
 
     criterion = model.get_criterion()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, patience=3)
 
     epoch = 1
     best_loss = float('inf')
     while epoch <= max_epochs:
         print('Start epoch', epoch)
-        train_loss = train(model, train_loader, criterion, optimizer, epoch, device)
+        train_loss = train(model, train_loader, criterion,
+                           optimizer, epoch, device)
         test_loss = test(model, test_loader, criterion, device)
         lr_scheduler.step(test_loss)
         print('Epoch (', epoch, '/', max_epochs, ')')
@@ -356,6 +368,7 @@ def main():
             save_prediction(model, test_loader, dump_dir, BATCH_SIZE)
             save_prediction(model, train_loader, augmented_dir, BATCH_SIZE)
         epoch += 1
+
 
 if __name__ == "__main__":
     main()

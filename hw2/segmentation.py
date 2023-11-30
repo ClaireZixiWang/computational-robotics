@@ -31,7 +31,7 @@ def iou(prediction, target):
         for class_id in range(1, class_num):  # class 0 is background
             mask_pred = (pred[batch_id] == class_id).int()
             mask_target = (target[batch_id] == class_id).int()
-            if mask_target.sum() == 0: # skip the occluded object
+            if mask_target.sum() == 0:  # skip the occluded object
                 continue
             intersection = (mask_pred * mask_target).sum()
             union = (mask_pred + mask_target).sum() - intersection
@@ -90,7 +90,8 @@ def save_learning_curve(train_loss_list, train_miou_list, val_loss_list, val_mio
     """
     epochs = np.arange(1, len(train_loss_list)+1)
     plt.figure()
-    lr_curve_plot = plt.plot(epochs, train_loss_list, color='navy', label="train_loss")
+    lr_curve_plot = plt.plot(epochs, train_loss_list,
+                             color='navy', label="train_loss")
     plt.plot(epochs, train_miou_list, color='teal', label="train_mIoU")
     plt.plot(epochs, val_loss_list, color='orange', label="val_loss")
     plt.plot(epochs, val_miou_list, color='gold', label="val_mIoU")
@@ -150,7 +151,7 @@ def train(model, device, train_loader, criterion, optimizer):
         ground_truth = data['target']
         inputs = inputs.to(device)
         # print(type(inputs))
-        
+
         # outputs = model(inputs)
         # print('output shape:', outputs.shape)
 
@@ -158,28 +159,31 @@ def train(model, device, train_loader, criterion, optimizer):
 #         for c in range(inputs.shape[1]):
 #             class_mask = torch.full(ground_truth.shape, c)
 #             labels[c] = (class_mask == ground_truth).long()
-        
+
 #         print(labels)
         ground_truth = ground_truth.to(device)
         # labels = labels.to(device)
-        
-        optimizer.zero_grad() # QUESTION: What does this do??
-        
+
+        optimizer.zero_grad()  # QUESTION: What does this do??
+
         # forward + backword step
         outputs = model(inputs)
-        loss = criterion(outputs, ground_truth)  # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+        loss = criterion(outputs, ground_truth)
         loss.backward()
         optimizer.step()
-        
+
         # reporting statistics
         train_loss += loss.item()
-        train_iou += np.array(iou(outputs, ground_truth)).mean() # QUESTION: Need the better way to store batch size.
-    
+        # QUESTION: Need the better way to store batch size.
+        train_iou += np.array(iou(outputs, ground_truth)).mean()
+
     train_loss /= len(train_loader)
     train_iou /= len(train_loader)
-    
-    print('The training loss for the epoch is %f and the training iou is %f' % (train_loss, train_iou))
-        
+
+    print('The training loss for the epoch is %f and the training iou is %f' %
+          (train_loss, train_iou))
+
     return train_loss, train_iou
 
 
@@ -205,10 +209,10 @@ def val(model, device, val_loader, criterion):
 #             labels.to(device)
             ground_truth = ground_truth.to(device)
 
-
             # forward
             outputs = model(inputs)
-            loss = criterion(outputs, ground_truth) # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+            # QUESTION: can I apply cross entropy loss directly to non-one hotted masks?
+            loss = criterion(outputs, ground_truth)
 
             # reporting statistics
             val_loss += loss.item()
@@ -249,12 +253,12 @@ def main():
 
     # TODO: Prepare model
     model = MiniUNet()
-    model.to(device) # QUESTION: should I do this here or in the training loop?
-    
+    model.to(device)  # QUESTION: should I do this here or in the training loop?
 
     # TODO: Define criterion and optimizer
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8) # QUESTION: what hyperparam for Adam?
+    # QUESTION: what hyperparam for Adam?
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-8)
 
     # Train and validate the model
     # TODO: Remember to include the saved learning curve plot in your report
@@ -263,7 +267,8 @@ def main():
     best_miou = float('-inf')
     while epoch <= max_epochs:
         print('Epoch (', epoch, '/', max_epochs, ')')
-        train_loss, train_miou = train(model, device, train_loader, criterion, optimizer)
+        train_loss, train_miou = train(
+            model, device, train_loader, criterion, optimizer)
         val_loss, val_miou = val(model, device, val_loader, criterion)
         train_loss_list.append(train_loss)
         train_miou_list.append(train_miou)
@@ -281,7 +286,8 @@ def main():
     model, epoch, best_miou = load_chkpt(model, 'checkpoint.pth.tar')
     save_prediction(model, device, val_loader, val_dir)
     save_prediction(model, device, test_loader, test_dir)
-    save_learning_curve(train_loss_list, train_miou_list, val_loss_list, val_miou_list)
+    save_learning_curve(train_loss_list, train_miou_list,
+                        val_loss_list, val_miou_list)
 
 
 if __name__ == '__main__':

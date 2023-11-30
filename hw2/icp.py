@@ -10,16 +10,18 @@ from transforms import depth_to_point_cloud, transform_point3s
 from camera import Camera, cam_view2pose
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--val', action='store_true', help='pose estimation for validation set')
-parser.add_argument('--test', action='store_true', help='pose estimation for test set')
+parser.add_argument('--val', action='store_true',
+                    help='pose estimation for validation set')
+parser.add_argument('--test', action='store_true',
+                    help='pose estimation for test set')
 
 LIST_OBJ_FOLDERNAME = [
-        "004_sugar_box",  # obj_id == 1
-        "005_tomato_soup_can",  # obj_id == 2
-        "007_tuna_fish_can",  # obj_id == 3
-        "011_banana",  # obj_id == 4
-        "024_bowl",  # obj_id == 5
-    ]
+    "004_sugar_box",  # obj_id == 1
+    "005_tomato_soup_can",  # obj_id == 2
+    "007_tuna_fish_can",  # obj_id == 3
+    "011_banana",  # obj_id == 4
+    "024_bowl",  # obj_id == 5
+]
 
 
 def obj_mesh2pts(obj_id, point_num, transform=None):
@@ -33,7 +35,9 @@ def obj_mesh2pts(obj_id, point_num, transform=None):
     Purpose:
          Sample a point cloud from the mesh of the specific object. If transform is not None, apply it.
     """
-    mesh_path = './YCB_subsubset/' + LIST_OBJ_FOLDERNAME[obj_id - 1] + '/model_com.obj'  # objects ID start from 1
+    mesh_path = './YCB_subsubset/' + \
+        LIST_OBJ_FOLDERNAME[obj_id - 1] + \
+        '/model_com.obj'  # objects ID start from 1
     mesh = trimesh.load(mesh_path)
     if transform is not None:
         mesh = mesh.apply_transform(transform)
@@ -55,11 +59,15 @@ def gen_obj_depth(obj_id, depth, mask):
     """
     # TODO
     if obj_id == -1:
-        mask = (mask>1)*1 # mask is now 1 in every pixel where there is object, 0 where there is background.
-        obj_depth = np.multiply(mask, depth) # element-wise multiply the depth image and the new mask
+        # mask is now 1 in every pixel where there is object, 0 where there is background.
+        mask = (mask > 1)*1
+        # element-wise multiply the depth image and the new mask
+        obj_depth = np.multiply(mask, depth)
     else:
-        mask = (mask==obj_id)*1 # mask is now 1 where the object is obj_id, 0 elsewhere
-        obj_depth = np.multiply(mask, depth) # element-wise multiply the depth image and the new mask
+        # mask is now 1 where the object is obj_id, 0 elsewhere
+        mask = (mask == obj_id)*1
+        # element-wise multiply the depth image and the new mask
+        obj_depth = np.multiply(mask, depth)
 
     return obj_depth
 
@@ -81,16 +89,16 @@ def obj_depth2pts(obj_id, depth, mask, camera, view_matrix):
         The view matrices are provided in the /dataset/val/view_matrix or /dataset/test/view_matrix folder.
     """
     # TODO
-    # QUESTION: completely not sure whether this is correct yet. 
+    # QUESTION: completely not sure whether this is correct yet.
     # QUESTION: more menuver needed?
-    
+
     # Get the depth image of specific objects
     obj_depth = gen_obj_depth(obj_id, depth, mask)
-    
+
     # Transform the depth image according to camera extrinsics (i.e. camera pose)
 #     camera_extrinsics = cam_view2pose(view_matrix)
 #     depth_transformed = transform_point3s(camera_extrinsics, obj_depth)
-    
+
 #     # Get the point cloud
 #     camera_intrinsics = camera.compute_camera_matrix()[0]
 #     world_pts = depth_to_point_cloud(camera_intrinsics, depth_transformed)
@@ -100,9 +108,6 @@ def obj_depth2pts(obj_id, depth, mask, camera, view_matrix):
     camera_extrinsics = cam_view2pose(view_matrix)
     world_pts = transform_point3s(camera_extrinsics, world_from_depth)
 
-
-
-    
     return world_pts
 
 
@@ -122,18 +127,19 @@ def align_pts(pts_a, pts_b, max_iterations=20, threshold=1e-05):
         scale=False and reflection=False should be passed to both icp() and procrustes().
     """
     # TODO
-    
+
     # Initialize the transformation matrix using trimesh.registration.procerustes()
     # QUESTION: what do you mean but subsampling the points? Aren't they having the same number of points already?
     try:
-        initial_transform = trimesh.registration.procrustes(pts_a, pts_b, scale=False, reflection=False)[0]
+        initial_transform = trimesh.registration.procrustes(
+            pts_a, pts_b, scale=False, reflection=False)[0]
     except np.linalg.LinAlgError:
         return None
 
-
     # Perform the icp algorithm using the trimesh.registration.icp()
     try:
-        matrix = trimesh.registration.icp(pts_a, pts_b, initial=initial_transform, max_iterations=max_iterations, threshold=threshold, scale=False, reflection=False)[0]
+        matrix = trimesh.registration.icp(pts_a, pts_b, initial=initial_transform,
+                                          max_iterations=max_iterations, threshold=threshold, scale=False, reflection=False)[0]
     except np.linalg.LinAlgError:
         return None
 
@@ -157,16 +163,18 @@ def estimate_pose(depth, mask, camera, view_matrix):
     """
     # TODO
     list_obj_pose = list()
-        
+
     # For every object, do:
     # 1. get the second point cloud of the object (which was implemented by me)
     # 2. get the first point cloud (which was suppodedly provided)
     # 3. use icp() to find the transformation, store in list_obj_pose
     for obj_id in range(1, 6):
         pts_b = obj_depth2pts(obj_id, depth, mask, camera, view_matrix)
-        pts_a = obj_mesh2pts(obj_id, len(pts_b)) # QUESTION: what's the sampling numbers?
-        list_obj_pose.append(align_pts(pts_a, pts_b, max_iterations=50)) # QUESTION: what's the order of transformation? send who to who?
-        
+        # QUESTION: what's the sampling numbers?
+        pts_a = obj_mesh2pts(obj_id, len(pts_b))
+        # QUESTION: what's the order of transformation? send who to who?
+        list_obj_pose.append(align_pts(pts_a, pts_b, max_iterations=50))
+
     return list_obj_pose
 
 
@@ -214,7 +222,8 @@ def export_gt_ply(scene_id, depth, gt_mask, camera, view_matrix):
     if len(pts) == 0:
         print("Empty point cloud!")
     else:
-        ptcloud = trimesh.points.PointCloud(vertices=pts, colors=[0, 255, 0])  # Green
+        ptcloud = trimesh.points.PointCloud(
+            vertices=pts, colors=[0, 255, 0])  # Green
         ptcloud.export(file_path)
 
 
@@ -242,7 +251,8 @@ def export_pred_ply(dataset_dir, scene_id, suffix, list_obj_pose):
         "gtmask_transformed": [0, 0, 255],  # Blue
         "predmask_transformed": [255, 0, 0],  # Red
     }
-    pts = np.empty([0, 3])  # Numpy array [n, 3], the point cloud to be exported.
+    # Numpy array [n, 3], the point cloud to be exported.
+    pts = np.empty([0, 3])
     for obj_id in range(1, 6):  # obj_id indicates an object in LIST_OBJ_FOLDERNAME
         pose = list_obj_pose[obj_id - 1]
         if pose is not None:
@@ -251,7 +261,8 @@ def export_pred_ply(dataset_dir, scene_id, suffix, list_obj_pose):
     if len(pts) == 0:
         print("Empty point cloud!")
     else:
-        ptcloud = trimesh.points.PointCloud(vertices=pts, colors=color_switcher[suffix])
+        ptcloud = trimesh.points.PointCloud(
+            vertices=pts, colors=color_switcher[suffix])
         ptcloud.export(file_path)
 
 
@@ -293,35 +304,44 @@ def main():
         # TODO
         # Get the depth image,
         # depth_img_path = scene_id + '_depth.png'
-        depth_path = os.path.join(dataset_dir, 'depth', str(scene_id)+'_depth.png')
+        depth_path = os.path.join(
+            dataset_dir, 'depth', str(scene_id)+'_depth.png')
         depth = image.read_depth(depth_path)
-        
+
         # Get the mask
         # pred_img_path
-        pred_path = os.path.join(dataset_dir, 'pred', str(scene_id)+'_pred.png')
+        pred_path = os.path.join(
+            dataset_dir, 'pred', str(scene_id)+'_pred.png')
         pred_mask = image.read_mask(pred_path)
-        
+
         # Get the view_matrix
-        view_path = os.path.join(dataset_dir, 'view_matrix', str(scene_id)+'.npy')
+        view_path = os.path.join(
+            dataset_dir, 'view_matrix', str(scene_id)+'.npy')
         view_matrix = np.load(view_path)
-        
+
         # Estimate_pose()
-        list_obj_pose_pred = estimate_pose(depth, mask=pred_mask, camera=my_camera, view_matrix=view_matrix)
-        
+        list_obj_pose_pred = estimate_pose(
+            depth, mask=pred_mask, camera=my_camera, view_matrix=view_matrix)
+
         # Save pose and generate masks
-        save_pose(dataset_dir, folder='predmask', scene_id=scene_id, list_obj_pose=list_obj_pose_pred)
-        export_pred_ply(dataset_dir, scene_id, suffix='predmask_transformed', list_obj_pose=list_obj_pose_pred)
-        
+        save_pose(dataset_dir, folder='predmask', scene_id=scene_id,
+                  list_obj_pose=list_obj_pose_pred)
+        export_pred_ply(dataset_dir, scene_id, suffix='predmask_transformed',
+                        list_obj_pose=list_obj_pose_pred)
+
         if args.val:
             # gt_img_path = scene_id + '_gt.png'
             gt_path = os.path.join(dataset_dir, 'gt', str(scene_id)+'_gt.png')
             gt_mask = image.read_mask(gt_path)
-            
-            list_obj_pose_gt = estimate_pose(depth, mask=gt_mask, camera=my_camera, view_matrix=view_matrix)
-            save_pose(dataset_dir, folder='gtmask', scene_id=scene_id, list_obj_pose=list_obj_pose_gt)
-            export_gt_ply(scene_id, depth, gt_mask, camera=my_camera, view_matrix=view_matrix)
-            export_pred_ply(dataset_dir, scene_id, suffix='gtmask_transformed', list_obj_pose=list_obj_pose_gt)        
-        
+
+            list_obj_pose_gt = estimate_pose(
+                depth, mask=gt_mask, camera=my_camera, view_matrix=view_matrix)
+            save_pose(dataset_dir, folder='gtmask',
+                      scene_id=scene_id, list_obj_pose=list_obj_pose_gt)
+            export_gt_ply(scene_id, depth, gt_mask,
+                          camera=my_camera, view_matrix=view_matrix)
+            export_pred_ply(
+                dataset_dir, scene_id, suffix='gtmask_transformed', list_obj_pose=list_obj_pose_gt)
 
 
 if __name__ == '__main__':

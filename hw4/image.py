@@ -12,7 +12,8 @@ def write_rgb(image, file_path):
     Purpose:
         Write out a color image.
     """
-    cv2.imwrite(file_path, cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_RGB2BGR))
+    cv2.imwrite(file_path, cv2.cvtColor(
+        image.astype(np.uint8), cv2.COLOR_RGB2BGR))
 
 
 def read_rgb(file_path):
@@ -51,7 +52,8 @@ def read_depth(file_path):
     Purpose:
         Read in a depth image.
     """
-    depth_image = cv2.imread(file_path, -1).astype(float)  # depth is saved in 16-bit
+    depth_image = cv2.imread(
+        file_path, -1).astype(float)  # depth is saved in 16-bit
     depth_image /= 1000.  # millimeters to meters
 
     return depth_image

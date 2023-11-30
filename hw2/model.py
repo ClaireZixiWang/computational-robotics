@@ -11,53 +11,62 @@ class MiniUNet(nn.Module):
         # TODO
         # Some inspiration from https://github.com/milesial/Pytorch-UNet
         self.down = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down2 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down3 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down4 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1), # QUESTION: any padding, stripe?
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3,
+                      padding=1),  # QUESTION: any padding, stripe?
             nn.ReLU()
         )
         self.down_last = nn.MaxPool2d(kernel_size=2)
         self.up = nn.Sequential(
-            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1), # QUESTION: or should we be using convtranspose2d? --> NO
+            # QUESTION: or should we be using convtranspose2d? --> NO
+            nn.Conv2d(in_channels=128, out_channels=256,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             # QUESTION: what's the interpolate function? Upsampling?? --> Yes
             nn.Upsample(scale_factor=2)
             # QUESTION: should I concat in the forward function? --> Yes
         )
         self.up2 = nn.Sequential(
-            nn.Conv2d(in_channels=128+256, out_channels=128, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=128+256, out_channels=128,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up3 = nn.Sequential(
-            nn.Conv2d(in_channels=64+128, out_channels=64, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=64+128, out_channels=64,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up4 = nn.Sequential(
-            nn.Conv2d(in_channels=32+64, out_channels=32, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=32+64, out_channels=32,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Upsample(scale_factor=2)
         )
         self.up5 = nn.Sequential(
-            nn.Conv2d(in_channels=16+32, out_channels=16, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=16+32, out_channels=16,
+                      kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=16, out_channels=6, kernel_size=1)
         )
-        
 
     def forward(self, x):
         """
@@ -80,7 +89,8 @@ class MiniUNet(nn.Module):
         # print("The size of down3 is: ", down3.size())
         # print("The size of down4 is: ", down4.size())
         # print("The size of down_last is: ", down_last.size())
-        up2 = self.up2(torch.cat([down4, up1], axis=1)) # QUESTION: what should be the axis?
+        # QUESTION: what should be the axis?
+        up2 = self.up2(torch.cat([down4, up1], axis=1))
         up3 = self.up3(torch.cat([down3, up2], axis=1))
         up4 = self.up4(torch.cat([down2, up3], axis=1))
         output = self.up5(torch.cat([down1, up4], axis=1))

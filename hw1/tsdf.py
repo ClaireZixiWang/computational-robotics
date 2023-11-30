@@ -29,17 +29,21 @@ class TSDFVolume:
         # Define voxel volume parameters
         self._volume_bounds = volume_bounds
         self._voxel_size = float(voxel_size)
-        self._truncation_margin = 2 * self._voxel_size  # truncation on SDF (max alowable distance away from a surface)
+        # truncation on SDF (max alowable distance away from a surface)
+        self._truncation_margin = 2 * self._voxel_size
 
         # Adjust volume bounds and ensure C-order contiguous
         # and calculate voxel bounds taking the voxel size into consideration
         self._voxel_bounds = np.ceil(
-            (self._volume_bounds[:, 1] - self._volume_bounds[:, 0]) / self._voxel_size
+            (self._volume_bounds[:, 1] -
+             self._volume_bounds[:, 0]) / self._voxel_size
         ).copy(order='C').astype(int)
-        self._volume_bounds[:, 1] = self._volume_bounds[:, 0] + self._voxel_bounds * self._voxel_size
+        self._volume_bounds[:, 1] = self._volume_bounds[:,
+                                                        0] + self._voxel_bounds * self._voxel_size
 
         # volume min bound is the origin of the volume in world coordinates
-        self._volume_origin = self._volume_bounds[:, 0].copy(order='C').astype(np.float32)
+        self._volume_origin = self._volume_bounds[:, 0].copy(
+            order='C').astype(np.float32)
 
         print('Voxel volume size: {} x {} x {} - # voxels: {:,}'.format(
             self._voxel_bounds[0],
@@ -53,7 +57,8 @@ class TSDFVolume:
         # for computing the cumulative moving average of observations per voxel
         self._weight_volume = np.zeros(self._voxel_bounds).astype(np.float32)
         color_bounds = np.append(self._voxel_bounds, 3)
-        self._color_volume = np.zeros(color_bounds).astype(np.float32)  # rgb order
+        self._color_volume = np.zeros(
+            color_bounds).astype(np.float32)  # rgb order
 
         # Get voxel grid coordinates
         xv, yv, zv = np.meshgrid(
@@ -91,12 +96,15 @@ class TSDFVolume:
         tsdf_volume, color_vol = self.get_volume()
 
         # Marching cubes
-        voxel_points, triangles, normals, _ = measure.marching_cubes(tsdf_volume, method="lewiner", level=0)
+        voxel_points, triangles, normals, _ = measure.marching_cubes(
+            tsdf_volume, method="lewiner", level=0)
         points_ind = np.round(voxel_points).astype(int)
-        points = self.voxel_to_world(self._volume_origin, voxel_points, self._voxel_size)
+        points = self.voxel_to_world(
+            self._volume_origin, voxel_points, self._voxel_size)
 
         # Get vertex colors.
-        rgb_vals = color_vol[points_ind[:, 0], points_ind[:, 1], points_ind[:, 2]]
+        rgb_vals = color_vol[points_ind[:, 0],
+                             points_ind[:, 1], points_ind[:, 2]]
         colors_r = rgb_vals[:, 0]
         colors_g = rgb_vals[:, 1]
         colors_b = rgb_vals[:, 2]
@@ -134,7 +142,8 @@ class TSDFVolume:
         # NOTE: prange is used instead of range(...) to take advantage of parallelism.
         for i in prange(voxel_coords.shape[0]):
             # TODO: shape of volumn_origin?
-            world_points[i] = voxel_coords[i] * voxel_size + volume_origin.flatten()
+            world_points[i] = voxel_coords[i] * \
+                voxel_size + volume_origin.flatten()
             # pass
         return world_points
 
@@ -160,19 +169,19 @@ class TSDFVolume:
         tsdf_new = np.empty_like(tsdf_old, dtype=np.float32)
         w_new = np.empty_like(w_old, dtype=np.float32)
 
-        assert(len(tsdf_old) == len(w_old))
+        assert (len(tsdf_old) == len(w_old))
         # print(len(tsdf_old))
         for i in prange(len(tsdf_old)):
             # print(i)
             # TODO:
             w_new[i] = w_old[i] + observation_weight
             # print(w_new[i], observation_weight)
-            tsdf_new[i] = (w_old[i] * tsdf_old + observation_weight * margin_distance[i]) / w_new[i]
+            tsdf_new[i] = (w_old[i] * tsdf_old +
+                           observation_weight * margin_distance[i]) / w_new[i]
             # pass
         # print(w_new)
         return tsdf_new, w_new
 
-    
     def get_valid_points(self, depth_image, voxel_u, voxel_v, voxel_z):
         """ Compute a boolean array for indexing the voxel volume and other variables.
         Note that every time the method integrate(...) is called, not every voxel in
@@ -198,10 +207,10 @@ class TSDFVolume:
         valid_points = np.array([True] * voxel_u.shape[0])
 
         for i in range(voxel_u.shape[0]):
-        
+
             # TODO 1:
             #  Eliminate pixels not in the image bounds or that are behind the image plane
-        
+
             if voxel_u[i] < 0 or voxel_u[i] >= image_width or voxel_v[i] < 0 or voxel_v[i] >= image_height:
                 valid_points[i] = False
             else:
@@ -219,8 +228,8 @@ class TSDFVolume:
             # TODO 2.3:
             #  Filter out zero depth values and cases where depth + truncation margin >= voxel_z
             # QUESTION is voxel_u and voxel_v int or float?? what if they are float?
-            # assert type(voxel_v[i]) is int and type(voxel_u[i]) is int  
-        
+            # assert type(voxel_v[i]) is int and type(voxel_u[i]) is int
+
         return valid_points
 
     def get_new_colors_with_weights(self, color_old, color_new, w_old, w_new, observation_weight=1.0):
@@ -245,9 +254,11 @@ class TSDFVolume:
         #  value weighted by the old weight, and the new color weighted by
         #  observation weight. Finally normalize the sum by the new weight.
         for i in range(color_updated.shape[0]):
-            w_new[i] = w_old[i] + observation_weight # added this line to avoid division by zero, don't know why though
-                                                     # messed up by parallelis?? very weird
-            color_updated[i] = (w_old[i] * color_old[i] + observation_weight * color_new[i]) / w_new[i]
+            # added this line to avoid division by zero, don't know why though
+            w_new[i] = w_old[i] + observation_weight
+            # messed up by parallelis?? very weird
+            color_updated[i] = (w_old[i] * color_old[i] +
+                                observation_weight * color_new[i]) / w_new[i]
 
         return color_updated
 
@@ -270,22 +281,25 @@ class TSDFVolume:
         #  space by calling `voxel_to_world`. Then, transform the points
         #  in world coordinate to image coordinates, which are in (u, v).
         #  You might want to save the voxel z coordinate for later use.
-        
+
         # get world coordinates from voxel grid
-        world_points = self.voxel_to_world(self._volume_origin, self._voxel_coords, self._voxel_size)
+        world_points = self.voxel_to_world(
+            self._volume_origin, self._voxel_coords, self._voxel_size)
 
         # transform world coordinates to camera coordinates
-        camera_coord = transform_point3s(transform_inverse(camera_pose), world_points)
+        camera_coord = transform_point3s(
+            transform_inverse(camera_pose), world_points)
 
         # transform camera coordinates to image coordinates
         image_coord = camera_to_image(camera_intrinsics, camera_coord)
         # print(image_coord[:, :1])
-        
+
         # TODO: 2.
         #  Get all of the valid points in the voxel grid by implementing
         #  the helper get_valid_points. Be sure to pass in the correct parameters.
         # QUESTION should I pass the image coord or camera coord? ANSWER image coord for u and v. camera coord for z!
-        valid_points_ind = self.get_valid_points(depth_image, image_coord[:, :1], image_coord[:, 1:], voxel_z=camera_coord[:, 2:])
+        valid_points_ind = self.get_valid_points(
+            depth_image, image_coord[:, :1], image_coord[:, 1:], voxel_z=camera_coord[:, 2:])
 
         # TODO: 3.
         #  With the valid_points array as your indexing array, index into
@@ -307,7 +321,8 @@ class TSDFVolume:
         for i in range(len(valid_image_coord_u)):
             depth = depth_image[valid_image_coord_v[i], valid_image_coord_u[i]]
             # print(depth, depth.shape)
-            distance  = (depth - valid_camera_coord_z[i]) / self._truncation_margin
+            distance = (
+                depth - valid_camera_coord_z[i]) / self._truncation_margin
             # print(distance)
             if distance > 1:
                 valid_margin_distance[i] = 1
@@ -315,20 +330,20 @@ class TSDFVolume:
                 valid_margin_distance[i] = -1
             else:
                 valid_margin_distance[i] = distance
-        
-        assert (valid_margin_distance >= -1).all() and (valid_margin_distance <= 1).all() # the 
-                       
+
+        assert (valid_margin_distance >= -
+                1).all() and (valid_margin_distance <= 1).all()  # the
+
         # TODO: 5.
         #  Compute the new weight volume and tsdf volume by calling
         #  `get_new_tsdf_and_weights`. Then update the weight volume
         #  and tsdf volume.
 
-
-
-        self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], weight_new = self.get_new_tsdf_and_weights(tsdf_old=self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], 
-                                                                                        margin_distance=valid_margin_distance, 
-                                                                                        w_old=self._weight_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], 
-                                                                                        observation_weight=observation_weight)
+        self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], weight_new = self.get_new_tsdf_and_weights(tsdf_old=self._tsdf_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z],
+                                                                                                                margin_distance=valid_margin_distance,
+                                                                                                                w_old=self._weight_volume[
+                                                                                                                    valid_tsdf_x, valid_tsdf_y, valid_tsdf_z],
+                                                                                                                observation_weight=observation_weight)
 
         # TODO: 6.
         #  Compute the new colors for only the valid voxels by using
@@ -337,21 +352,23 @@ class TSDFVolume:
         #  be obtained by indexing the valid voxels in the color volume and
         #  indexing the valid pixels in the rgb image.
         assert len(valid_image_coord_u) == len(valid_image_coord_v)
-        color_new = np.empty((len(valid_image_coord_u),3))
+        color_new = np.empty((len(valid_image_coord_u), 3))
         # print(color_new.shape)
         # print(color_image.shape)
         for i in range(len(valid_image_coord_u)):
-            color_new[i] = color_image[valid_image_coord_v[i], valid_image_coord_u[i]]
+            color_new[i] = color_image[valid_image_coord_v[i],
+                                       valid_image_coord_u[i]]
 
-        self._color_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z] = self.get_new_colors_with_weights(self._color_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], 
+        self._color_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z] = self.get_new_colors_with_weights(self._color_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z],
                                                                                                         color_new=color_new,
-                                                                                                        w_old=self._weight_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z], 
+                                                                                                        w_old=self._weight_volume[
+                                                                                                            valid_tsdf_x, valid_tsdf_y, valid_tsdf_z],
                                                                                                         w_new=weight_new,
-                                                                                                        observation_weight=observation_weight) 
+                                                                                                        observation_weight=observation_weight)
 
-        self._weight_volume[valid_tsdf_x, valid_tsdf_y, valid_tsdf_z] = weight_new
+        self._weight_volume[valid_tsdf_x,
+                            valid_tsdf_y, valid_tsdf_z] = weight_new
         # print(self._color_volume)
-
 
     """
     *******************************************************************************

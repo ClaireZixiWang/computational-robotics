@@ -38,7 +38,8 @@ def main():
         "024_bowl",
     ]
     num_obj = len(list_obj_foldername)
-    list_obj_position = [[-0.1, -0.1, 0.1], [-0.1, 0.1, 0.1], [0.1, -0.1, 0.1], [0.1, 0.1, 0.1], [0, 0, 0.1], ]
+    list_obj_position = [[-0.1, -0.1, 0.1], [-0.1, 0.1, 0.1],
+                         [0.1, -0.1, 0.1], [0.1, 0.1, 0.1], [0, 0, 0.1], ]
     list_obj_orientation = objects.gen_obj_orientation(
         num_scene=training_scene,
         num_obj=num_obj
